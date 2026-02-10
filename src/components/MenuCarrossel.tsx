@@ -5,6 +5,8 @@ import React from 'react';
 import {
   Animated,
   Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -19,21 +21,23 @@ import { ThemedText } from './Themed';
 // Ajuste este import se seu arquivo chama "Menu.ts" com M maiúsculo
 import { MENU_ITEMS, MenuItem } from '../config/menu';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Layout do carrossel
 const SPACING = 14;
-const ITEM_WIDTH = 110;
+const ITEM_WIDTH = 90;
 const SNAP = ITEM_WIDTH + SPACING;
 
-// Para initialScrollIndex funcionar sem warning, expomos getItemLayout
-const getItemLayout = (_: any, index: number) => ({
-  length: SNAP,
-  offset: SNAP * index,
-  index,
-});
+// Largura dos spacers para que o item fique CENTRALIZADO na tela
+const SIDE_SPACER = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
 
-type DataItem = MenuItem | { spacer: true };
+// Índice lógico dos itens reais (sem contar spacers de header/footer)
+const START_CENTER_INDEX = 1; // queremos começar no item 2 (índice lógico 1)
+
+// Linear helper
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(n, max));
+
+type DataItem = MenuItem; // agora não colocaremos "spacer" dentro do data
 
 const makeStyles = (t: AppTheme) => {
   const isDark = t.mode === 'dark';
@@ -45,14 +49,13 @@ const makeStyles = (t: AppTheme) => {
       borderRadius: 20,
       marginBottom: t.spacing(1.5),
       backgroundColor: t.colors.card,
-      // Sombra externa (ajuste para claro/escuro)
       shadowColor: '#000',
       shadowOpacity: isDark ? 0.55 : 0.1,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 6 },
       elevation: 4,
+      overflow: 'visible',
     },
-    // “Inner shadow” fake: bordas claras/escuras
     innerTop: {
       position: 'absolute',
       top: 0,
@@ -73,7 +76,6 @@ const makeStyles = (t: AppTheme) => {
       borderBottomRightRadius: 20,
       backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.08)',
     },
-    // Canal onde a lista corre (borda interna sutil)
     trough: {
       position: 'absolute',
       left: 0,
@@ -86,8 +88,8 @@ const makeStyles = (t: AppTheme) => {
       overflow: 'hidden',
     },
 
-    listContent: { paddingHorizontal: (width - ITEM_WIDTH) / 2, gap: SPACING },
-    itemWrap: { width: ITEM_WIDTH, alignItems: 'center', justifyContent: 'center' },
+    listContent: { /* sem padding horizontal */ },
+    itemWrap: { width: ITEM_WIDTH, alignItems: 'center', justifyContent: 'center', marginRight: SPACING },
     itemCard: {
       width: ITEM_WIDTH,
       height: ITEM_WIDTH,
@@ -97,7 +99,6 @@ const makeStyles = (t: AppTheme) => {
       justifyContent: 'center',
       backgroundColor: t.colors.card,
       borderColor: t.colors.border,
-      // Glow do card
       shadowColor: '#000',
       shadowOpacity: 0.18,
       shadowRadius: 10,
@@ -113,31 +114,56 @@ export default function MenuCarrossel() {
   const s = React.useMemo(() => makeStyles(theme), [theme]);
   const navigation = useNavigation<any>();
 
-  // Spacers nas pontas para centralizar o primeiro/último item
-  const data = React.useMemo<DataItem[]>(() => [{ spacer: true }, ...MENU_ITEMS, { spacer: true }], []);
+  // Apenas os itens (sem spacers dentro do data)
+  const data = React.useMemo<DataItem[]>(() => [...MENU_ITEMS], []);
 
   const scrollX = React.useRef(new Animated.Value(0)).current;
   const flatRef = React.useRef<Animated.FlatList<DataItem>>(null);
 
-  // Começa no primeiro item real (index 1, pois 0 é spacer)
-  const initialScrollIndex = 1;
+  // Calcula offset central para um índice lógico (0..data.length-1)
+  const getCenterOffsetForIndex = React.useCallback((logicalIndex: number) => {
+    // offset = headerSpacer + logicalIndex*(ITEM+SPACING)
+    return SIDE_SPACER + logicalIndex * SNAP;
+  }, []);
 
+  // Centraliza programaticamente (útil no onLayout e ao tocar)
+  function scrollToLogicalIndex(logicalIndex: number, animated = true) {
+    const clamped = clamp(logicalIndex, 0, data.length - 1);
+    const offset = getCenterOffsetForIndex(clamped);
+    (flatRef.current as any)?.scrollToOffset?.({ offset, animated });
+  }
+
+  // Ao montar/medir o layout, posiciona no item 2 (índice lógico 1)
+  const handleLayout = React.useCallback(() => {
+    requestAnimationFrame(() => {
+      // sem animação no primeiro frame para evitar “salto”
+      scrollToLogicalIndex(START_CENTER_INDEX, false);
+    });
+  }, [scrollToLogicalIndex]);
+
+  // Melhorar snap: quando a rolagem para, ajusta para a célula mais próxima do centro
+  const onMomentumScrollEnd = React.useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const x = e.nativeEvent.contentOffset.x;
+      // remove o header spacer para obter a posição lógica
+      const logical = (x - SIDE_SPACER) / SNAP;
+      const rounded = Math.round(logical);
+      scrollToLogicalIndex(rounded);
+    },
+    [scrollToLogicalIndex]
+  );
+
+  // Caso precise detectar o item “mais visível” (não precisamos de estado agora)
   const onViewableItemsChanged = React.useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // Skip: já centralizamos via initialScrollIndex + snap
-    }
+    (_: { viewableItems: ViewToken[] }) => {}
   ).current;
 
   const viewabilityConfig = React.useRef({ itemVisiblePercentThreshold: 60 }).current;
 
-  function scrollToIndexSafe(index: number) {
-    const offset = (index - 1) * SNAP;
-    (flatRef.current as any)?.scrollToOffset?.({ offset, animated: true });
-  }
-
-  function handlePress(item: MenuItem, index: number) {
+  function handlePress(item: MenuItem, logicalIndex: number) {
     Haptics.selectionAsync();
-    scrollToIndexSafe(index);
+    // centraliza e navega
+    scrollToLogicalIndex(logicalIndex);
     setTimeout(() => {
       if (item.route) {
         navigation.navigate(item.route);
@@ -148,7 +174,7 @@ export default function MenuCarrossel() {
   }
 
   return (
-    <View style={s.shell}>
+    <View style={s.shell} onLayout={handleLayout}>
       <View style={s.innerTop} />
       <View style={s.innerBottom} />
       <View style={s.trough} />
@@ -158,27 +184,27 @@ export default function MenuCarrossel() {
         horizontal
         showsHorizontalScrollIndicator={false}
         data={data}
-        keyExtractor={(it, idx) => ('spacer' in it ? `spacer-${idx}` : it.id)}
+        keyExtractor={(it) => it.id}
         contentContainerStyle={s.listContent}
+        // Spacers REAIS como header/footer (nada de paddingHorizontal)
+        ListHeaderComponent={<View style={{ width: SIDE_SPACER }} />}
+        ListFooterComponent={<View style={{ width: SIDE_SPACER }} />}
+        // Snap consistente
         snapToInterval={SNAP}
+        snapToAlignment="start"
         decelerationRate={Platform.select({ ios: 'fast', android: 0.98 as any })}
         bounces={false}
-        initialScrollIndex={initialScrollIndex}
-        getItemLayout={getItemLayout}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: true }
         )}
         scrollEventThrottle={16}
+        onMomentumScrollEnd={onMomentumScrollEnd}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        renderItem={({ item, index }) => {
-          if ('spacer' in item) {
-            return <View style={{ width: (width - ITEM_WIDTH) / 2 }} />;
-          }
-
-          // Base do item (compensando spacer inicial)
-          const position = (index - 1) * SNAP;
+        renderItem={({ item, index: logicalIndex }) => {
+          // posição base deste item
+          const position = getCenterOffsetForIndex(logicalIndex);
           const inputRange = [position - SNAP, position, position + SNAP];
 
           // Destaque do item central
@@ -230,7 +256,7 @@ export default function MenuCarrossel() {
                 ]}
               >
                 <Pressable
-                  onPress={() => handlePress(item, index)}
+                  onPress={() => handlePress(item, logicalIndex)}
                   android_ripple={{ color: '#00000012', borderless: true }}
                   style={{ alignItems: 'center', justifyContent: 'center' }}
                   accessibilityRole="button"
