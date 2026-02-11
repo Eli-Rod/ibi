@@ -2,8 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import HeroHeader from '../components/HeroHeader';
-// import MenuCarrossel from '../components/MenuCarrossel';
-import MenuDock from '../components/MenuDock';
 import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
 import { useTheme } from '../theme/ThemeProvider';
 import type { Theme as AppTheme } from '../theme/tokens';
@@ -32,8 +30,8 @@ export default function Home() {
           onSecondary={() => navigation.navigate('Mensagens')}
         />
 
-        {/* Menu carrossel com efeito center-pop */}
-        <MenuDock />
+        {/* Menu carrossel com efeito center-pop
+        <MenuDock /> */}
 
         {/* Seções (placeholders) */}
         <ThemedCard>
