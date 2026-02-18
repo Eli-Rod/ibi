@@ -1,5 +1,4 @@
-// src/theme/tokens.ts
-export type ColorMode = 'light' | 'dark';
+export type ColorMode = 'light' | 'dark' | 'system';
 
 export const palette = {
   primary: '#1E4DD8',
@@ -41,8 +40,13 @@ export type Theme = {
   };
 };
 
+import { Appearance } from 'react-native';
+
 export function buildTheme(mode: ColorMode, overrides?: Partial<Theme>): Theme {
-  const dark = mode === 'dark';
+  const isSystem = mode === 'system';
+  const systemMode = Appearance.getColorScheme() || 'light';
+  const activeMode = isSystem ? systemMode : mode;
+  const dark = activeMode === 'dark';
   const base: Theme = {
     mode,
     colors: {

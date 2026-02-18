@@ -15,7 +15,6 @@ export default function KidsAdminScreen() {
 
   const fetchRequests = useCallback(async () => {
     try {
-      // Buscar apenas check-ins com status 'pendente'
       const { data: checkins, error: checkinsError } = await supabase
         .from('kids_checkins')
         .select('*')
@@ -54,26 +53,18 @@ export default function KidsAdminScreen() {
 
   useEffect(() => {
     fetchRequests();
-
-    // Realtime para novas solicitações e mudanças de status
     const channel = supabase
       .channel('kids_admin_realtime')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'kids_checkins' 
-      }, () => {
-        fetchRequests(); // Recarrega a lista sempre que houver qualquer mudança
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kids_checkins' }, () => {
+        fetchRequests();
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [fetchRequests]);
 
   const handleApprove = async (request: any) => {
     try {
+      // Se não tem aprovado_em, é um check-in. Se já tem, é um check-out.
       const isCheckin = !request.aprovado_em;
       const newStatus = isCheckin ? 'aprovado' : 'finalizado';
       
@@ -95,9 +86,7 @@ export default function KidsAdminScreen() {
 
       if (error) throw error;
       
-      // Feedback visual imediato removendo da lista local
       setRequests(prev => prev.filter(r => r.id !== request.id));
-      
       Alert.alert('Sucesso', isCheckin ? 'Entrada aprovada!' : 'Saída finalizada!');
     } catch (error: any) {
       Alert.alert('Erro', error.message);
@@ -123,9 +112,7 @@ export default function KidsAdminScreen() {
         data={requests}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         ListHeaderComponent={
           <View style={styles.header}>
             <ThemedText style={styles.title}>Painel do Professor</ThemedText>
@@ -134,46 +121,25 @@ export default function KidsAdminScreen() {
         }
         renderItem={({ item }) => {
           const isCheckin = !item.aprovado_em;
-          const fotoUrl = item.kids?.foto_url;
           return (
             <ThemedCard style={styles.card}>
               <View style={styles.cardRow}>
                 <View style={[styles.avatarWrap, { backgroundColor: theme.colors.border }]}>
-                  {fotoUrl ? (
-                    <Image 
-                      source={{ uri: `${fotoUrl}${fotoUrl.includes('?') ? '&' : '?'}t=${Date.now()}` }} 
-                      style={styles.avatar} 
-                    />
-                  ) : (
-                    <Ionicons name="happy-outline" size={30} color={theme.colors.primary} />
-                  )}
+                  {item.kids?.foto_url ? <Image source={{ uri: `${item.kids.foto_url}?t=${Date.now()}` }} style={styles.avatar} /> :
+                    <Ionicons name="happy-outline" size={30} color={theme.colors.primary} />}
                 </View>
                 <View style={{ flex: 1 }}>
                   <ThemedText style={styles.kidName}>{item.kids?.nome_completo || 'Criança'}</ThemedText>
-                  <ThemedText style={styles.parentInfo}>
-                    Responsável: {item.perfis?.apelido || item.perfis?.nome_completo || 'Membro'}
-                  </ThemedText>
-                  {item.kids?.observacoes && (
-                    <View style={styles.obsBadge}>
-                      <ThemedText style={styles.obsText}>Obs: {item.kids.observacoes}</ThemedText>
-                    </View>
-                  )}
+                  <ThemedText style={styles.parentInfo}>Responsável: {item.perfis?.apelido || item.perfis?.nome_completo || 'Membro'}</ThemedText>
+                  {item.kids?.observacoes && <View style={styles.obsBadge}><ThemedText style={styles.obsText}>Obs: {item.kids.observacoes}</ThemedText></View>}
                 </View>
               </View>
-              
               <View style={styles.footer}>
                 <View style={[styles.typeBadge, { backgroundColor: isCheckin ? '#DBEAFE' : '#FEF3C7' }]}>
-                  <ThemedText style={[styles.typeText, { color: isCheckin ? '#1E40AF' : '#92400E' }]}>
-                    {isCheckin ? 'SOLICITAÇÃO DE ENTRADA' : 'SOLICITAÇÃO DE SAÍDA'}
-                  </ThemedText>
+                  <ThemedText style={[styles.typeText, { color: isCheckin ? '#1E40AF' : '#92400E' }]}>{isCheckin ? 'SOLICITAÇÃO DE ENTRADA' : 'SOLICITAÇÃO DE SAÍDA'}</ThemedText>
                 </View>
-                <Pressable 
-                  style={[styles.approveBtn, { backgroundColor: isCheckin ? '#22C55E' : '#F59E0B' }]}
-                  onPress={() => handleApprove(item)}
-                >
-                  <ThemedText style={styles.approveBtnText}>
-                    {isCheckin ? 'Aprovar Entrada' : 'Liberar Criança'}
-                  </ThemedText>
+                <Pressable style={[styles.approveBtn, { backgroundColor: isCheckin ? '#22C55E' : '#F59E0B' }]} onPress={() => handleApprove(item)}>
+                  <ThemedText style={styles.approveBtnText}>{isCheckin ? 'Aprovar Entrada' : 'Liberar Criança'}</ThemedText>
                 </Pressable>
               </View>
             </ThemedCard>

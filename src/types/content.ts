@@ -54,3 +54,20 @@ export type KidCheckin = {
   status: 'pendente' | 'aprovado' | 'finalizado';
   criado_em?: string;
 };
+
+export type Profile = {
+  id: string;
+  nome_completo?: string;
+  apelido?: string;
+  avatar_url?: string;
+  celular?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  atualizado_em?: string,
+  biometria_ativa: boolean;
+};
