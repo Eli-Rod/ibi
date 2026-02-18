@@ -13,7 +13,7 @@ export function useAvisos(opts?: { realtime?: boolean; pageSize?: number }) {
 
   const loadFirst = React.useCallback(async () => {
     setLoading(true);
-    try {
+    try { 
       const page = await getAvisosPage({ pageSize });
       setData(page.items);
       setCursorId(page.cursorId);
