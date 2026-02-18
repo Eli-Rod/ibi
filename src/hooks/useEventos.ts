@@ -1,61 +1,42 @@
-import React from 'react';
-import { getEventosPage, getProximosEventos, observeEventos } from '../services/firebase';
+import { useCallback, useEffect, useState } from 'react';
+import { supabase } from '../services/supabase';
 import type { Evento } from '../types/content';
 
-export function useEventos(opts?: { realtime?: boolean; pageSize?: number; futuros?: boolean }) {
-  const [data, setData] = React.useState<Evento[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [cursorId, setCursorId] = React.useState<string | undefined>();
-  const [hasMore, setHasMore] = React.useState(true);
+export function useEventos(opts?: { futuros?: boolean }) {
+  const [data, setData] = useState<Evento[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const pageSize = opts?.pageSize ?? 10;
-
-  const loadFirst = React.useCallback(async () => {
-    setLoading(true);
+  const fetchEventos = useCallback(async () => {
     try {
-      if (opts?.futuros) {
-        const items = await getProximosEventos();
-        setData(items);
-        setCursorId(undefined);
-        setHasMore(false);
-      } else {
-        const page = await getEventosPage({ pageSize });
-        setData(page.items);
-        setCursorId(page.cursorId);
-        setHasMore(!!page.cursorId);
-      }
+      // Se opts.futuros for true, usamos a view de próximos eventos
+      // Caso contrário, poderíamos buscar todos (ajustável conforme necessidade)
+      const table = opts?.futuros ? 'vw_eventos_proximos' : 'eventos';
+      
+      const { data: eventos, error } = await supabase
+        .from(table)
+        .select('*');
+
+      if (error) throw error;
+      setData(eventos || []);
+    } catch (err) {
+      console.error('Erro ao buscar eventos:', err);
     } finally {
       setLoading(false);
-    }
-  }, [opts?.futuros, pageSize]);
-
-  const loadMore = React.useCallback(async () => {
-    if (!hasMore || !cursorId || opts?.futuros) return;
-    const page = await getEventosPage({ pageSize, cursorId });
-    setData((prev) => prev.concat(page.items));
-    setCursorId(page.cursorId);
-    setHasMore(!!page.cursorId);
-  }, [cursorId, hasMore, pageSize, opts?.futuros]);
-
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await loadFirst();
-    } finally {
       setRefreshing(false);
     }
-  }, [loadFirst]);
+  }, [opts?.futuros]);
 
-  React.useEffect(() => {
-    if (opts?.realtime && !opts.futuros) {
-      const unsub = observeEventos((items) => setData(items));
-      setLoading(false);
-      return () => unsub();
-    } else {
-      loadFirst();
-    }
-  }, [opts?.realtime, opts?.futuros, loadFirst]);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchEventos();
+  }, [fetchEventos]);
 
-  return { data, loading, refreshing, onRefresh, loadMore, hasMore };
+  useEffect(() => {
+    fetchEventos();
+  }, [fetchEventos]);
+
+  return { data, loading, refreshing, onRefresh, hasMore: false, loadMore: () => {} };
 }
+
+
