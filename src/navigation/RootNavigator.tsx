@@ -182,8 +182,13 @@ function CustomDrawer(props: DrawerContentComponentProps) {
     if (user) {
       fetchProfileData();
       
-      // Listener para atualização instantânea da foto
-      const sub = DeviceEventEmitter.addListener('user.avatarUpdated', (uri) => {
+      // Listener para atualização instantânea do perfil (apelido, nome, etc)
+      const profileSub = DeviceEventEmitter.addListener('profile.updated', (profileData) => {
+        updateNameFromProfile(profileData);
+      });
+
+      // Listener para atualização da foto
+      const avatarSub = DeviceEventEmitter.addListener('user.avatarUpdated', (uri) => {
         setAvatarUri(uri);
       });
 
@@ -200,7 +205,8 @@ function CustomDrawer(props: DrawerContentComponentProps) {
         .subscribe();
 
       return () => {
-        sub.remove();
+        profileSub.remove();
+        avatarSub.remove();
         supabase.removeChannel(channel);
       };
     }

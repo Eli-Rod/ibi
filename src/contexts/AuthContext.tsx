@@ -1,5 +1,6 @@
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types/content';
 
@@ -30,6 +31,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       setProfile(data);
+      // Emitir evento quando o perfil é carregado
+      DeviceEventEmitter.emit('profile.updated', data);
     } catch (error) {
       console.error('Erro ao buscar perfil:', error);
       setProfile(null);
