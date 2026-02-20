@@ -350,139 +350,95 @@ export default function KidsScreen() {
                   >
                     <Ionicons
                       name="create-outline"
-                      size={22}
-                      color={theme.colors.primary}
+                      size={20}
+                      color={theme.colors.muted}
                     />
                   </Pressable>
-
                   <Pressable
                     onPress={() => handleDeleteKid(item.id)}
                     style={styles.iconBtn}
                   >
                     <Ionicons
                       name="trash-outline"
-                      size={22}
+                      size={20}
                       color="#EF4444"
                     />
                   </Pressable>
                 </View>
               </View>
 
-              {item.currentCheckin?.status === 'pendente' ? (
-                <View style={styles.pendingActions}>
-                  <View
-                    style={[
-                      styles.checkinBtn,
-                      {
-                        backgroundColor: theme.colors.border,
-                        flex: 1,
-                      },
-                    ]}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.checkinBtnText,
-                        { color: theme.colors.text },
-                      ]}
-                    >
-                      Aguardando Professor...
-                    </ThemedText>
-                  </View>
-
-                  <Pressable
-                    style={styles.cancelBtn}
-                    onPress={() =>
-                      handleCancelRequest(
-                        item.currentCheckin!.id
-                      )
-                    }
-                  >
-                    <Ionicons
-                      name="close-circle"
-                      size={24}
-                      color="#EF4444"
-                    />
-                  </Pressable>
-                </View>
-              ) : (
+              {!item.currentCheckin ? (
                 <Pressable
+                  onPress={() =>
+                    navigation.navigate('Scanner', {
+                      kidId: item.id,
+                      mode: 'checkin',
+                    })
+                  }
                   style={[
                     styles.checkinBtn,
                     { backgroundColor: theme.colors.primary },
                   ]}
-                  onPress={() => {
-                    if (!item.currentCheckin)
-                      navigation.navigate('Scanner', {
-                        kidId: item.id,
-                        mode: 'checkin',
-                      });
-                    else if (
-                      item.currentCheckin.status === 'aprovado'
-                    )
-                      navigation.navigate('Scanner', {
-                        kidId: item.id,
-                        mode: 'checkout',
-                      });
-                  }}
                 >
                   <ThemedText style={styles.checkinBtnText}>
-                    {!item.currentCheckin
-                      ? 'Realizar Check-in'
-                      : 'Solicitar Check-out'}
+                    Realizar Check-in
+                  </ThemedText>
+                </Pressable>
+              ) : item.currentCheckin.status === 'pendente' ? (
+                <View style={styles.pendingActions}>
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <ThemedText style={[styles.flex1, { fontSize: 13, opacity: 0.7 }]}>
+                    Solicitação enviada...
+                  </ThemedText>
+                  <Pressable
+                    onPress={() => handleCancelRequest(item.currentCheckin!.id)}
+                    style={styles.cancelBtn}
+                  >
+                    <ThemedText style={{ color: '#EF4444', fontWeight: '700' }}>
+                      Cancelar
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('Scanner', {
+                      kidId: item.id,
+                      mode: 'checkout',
+                    })
+                  }
+                  style={[
+                    styles.checkinBtn,
+                    { backgroundColor: '#F59E0B' },
+                  ]}
+                >
+                  <ThemedText style={styles.checkinBtnText}>
+                    Solicitar Check-out
                   </ThemedText>
                 </Pressable>
               )}
             </ThemedCard>
           );
         }}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons
-              name="people-outline"
-              size={60}
-              color={theme.colors.muted}
-            />
-            <ThemedText style={styles.emptyText}>
-              Nenhuma criança cadastrada.
-            </ThemedText>
-
-            <Pressable
-              style={[
-                styles.addBtn,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={() => navigation.navigate('KidForm')}
-            >
-              <ThemedText style={styles.addBtnText}>
-                Cadastrar Criança
-              </ThemedText>
-            </Pressable>
-          </View>
-        }
         ListFooterComponent={
-          kids.length > 0 ? (
-            <Pressable
-              style={[
-                styles.addBtnOutline,
-                { borderColor: theme.colors.primary },
-              ]}
-              onPress={() => navigation.navigate('KidForm')}
+          <Pressable
+            onPress={() => navigation.navigate('KidForm')}
+            style={styles.addBtnOutline}
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <ThemedText
+              style={{
+                color: theme.colors.primary,
+                fontWeight: '700',
+              }}
             >
-              <Ionicons
-                name="add-circle-outline"
-                size={20}
-                color={theme.colors.primary}
-              />
-              <ThemedText
-                style={{
-                  color: theme.colors.primary,
-                  fontWeight: '700',
-                }}
-              >
-                Adicionar Outra Criança
-              </ThemedText>
-            </Pressable>
-          ) : null
+              Cadastrar nova criança
+            </ThemedText>
+          </Pressable>
         }
       />
     </ThemedView>

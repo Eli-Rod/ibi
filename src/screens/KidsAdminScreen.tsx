@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, RefreshControl, View } from 'react-native';
 import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
+import { createStyles } from './styles/KidsAdminScreen.styles';
 
 export default function KidsAdminScreen() {
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   const { user } = useAuth();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,26 +157,3 @@ export default function KidsAdminScreen() {
     </ThemedView>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { padding: 20, paddingBottom: 40 },
-  header: { marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '800', marginBottom: 4 },
-  subtitle: { opacity: 0.7, fontSize: 14 },
-  card: { marginBottom: 16, padding: 16 },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  avatarWrap: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  avatar: { width: 60, height: 60 },
-  kidName: { fontSize: 18, fontWeight: '700' },
-  parentInfo: { fontSize: 13, opacity: 0.6, marginTop: 2 },
-  obsBadge: { backgroundColor: '#FEE2E2', padding: 6, borderRadius: 6, marginTop: 6 },
-  obsText: { fontSize: 11, color: '#991B1B', fontWeight: '600' },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#eee', paddingTop: 12, gap: 12 },
-  typeBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, alignSelf: 'flex-start' },
-  typeText: { fontSize: 10, fontWeight: '800' },
-  approveBtn: { paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-  approveBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  emptyContainer: { alignItems: 'center', marginTop: 80, gap: 12 },
-  emptyText: { fontSize: 16, opacity: 0.6, textAlign: 'center' },
-});
