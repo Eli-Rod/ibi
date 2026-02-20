@@ -1,13 +1,25 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import { ThemedText, ThemedView } from '../components/Themed';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
+import { createStyles } from './styles/RegisterScreen.styles';
 
 export default function RegisterScreen() {
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   const navigation = useNavigation<any>();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,6 +37,7 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -40,21 +53,23 @@ export default function RegisterScreen() {
   }
 
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <KeyboardAvoidingView 
+    <ThemedView style={styles.flex}>
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.header}>
             <ThemedText style={styles.title}>Criar Conta</ThemedText>
-            <ThemedText style={{ color: theme.colors.muted }}>Junte-se à nossa comunidade IBI</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Junte-se à nossa comunidade IBI
+            </ThemedText>
           </View>
 
           <View style={styles.form}>
             <ThemedText style={styles.label}>E-mail</ThemedText>
             <TextInput
-              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
+              style={styles.input}
               placeholder="seu@email.com"
               placeholderTextColor={theme.colors.muted}
               value={email}
@@ -65,7 +80,7 @@ export default function RegisterScreen() {
 
             <ThemedText style={styles.label}>Senha</ThemedText>
             <TextInput
-              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
+              style={styles.input}
               placeholder="Mínimo 6 caracteres"
               placeholderTextColor={theme.colors.muted}
               value={password}
@@ -75,7 +90,7 @@ export default function RegisterScreen() {
 
             <ThemedText style={styles.label}>Confirmar Senha</ThemedText>
             <TextInput
-              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.card }]}
+              style={styles.input}
               placeholder="Repita sua senha"
               placeholderTextColor={theme.colors.muted}
               value={confirmPassword}
@@ -83,23 +98,27 @@ export default function RegisterScreen() {
               secureTextEntry
             />
 
-            <Pressable 
-              style={[styles.button, { backgroundColor: theme.colors.primary }]} 
+            <Pressable
+              style={styles.button}
               onPress={handleRegister}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <ThemedText style={styles.buttonText}>Cadastrar</ThemedText>
+                <ThemedText style={styles.buttonText}>
+                  Cadastrar
+                </ThemedText>
               )}
             </Pressable>
 
-            <Pressable 
-              style={styles.linkButton} 
+            <Pressable
+              style={styles.linkButton}
               onPress={() => navigation.navigate('Login')}
             >
-              <ThemedText style={{ color: theme.colors.primary }}>Já tem uma conta? Faça login</ThemedText>
+              <ThemedText style={styles.linkText}>
+                Já tem uma conta? Faça login
+              </ThemedText>
             </Pressable>
           </View>
         </ScrollView>
@@ -107,27 +126,3 @@ export default function RegisterScreen() {
     </ThemedView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 24, flexGrow: 1, justifyContent: 'center' },
-  header: { marginBottom: 32 },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: 8 },
-  form: { gap: 16 },
-  label: { fontWeight: '600', marginBottom: -8 },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-  },
-  button: {
-    height: 50,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  linkButton: { alignItems: 'center', marginTop: 16 },
-});
