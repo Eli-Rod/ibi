@@ -29,6 +29,7 @@ export default function KidsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const isMounted = useRef(true);
+  const processingRef = useRef<Set<string>>(new Set());
 
   const fetchKidsAndCheckins = useCallback(async () => {
     if (!user || !isMounted.current) return;
@@ -42,20 +43,26 @@ export default function KidsScreen() {
 
       if (kidsError) throw kidsError;
 
-      const today = new Date().toISOString().split('T')[0];
-
+      // Buscar check-ins que NÃO foram finalizados (pendente, aprovado)
       const { data: checkinsData, error: checkinsError } = await supabase
         .from('kids_checkins')
         .select('*')
-        .gte('criado_em', today)
-        .neq('status', 'finalizado');
+        .in('status', ['pendente', 'aprovado']);
 
       if (checkinsError) throw checkinsError;
 
-      const merged = (kidsData || []).map(kid => ({
-        ...kid,
-        currentCheckin: (checkinsData || []).find(c => c.kid_id === kid.id),
-      }));
+      const merged = (kidsData || []).map(kid => {
+        // Pegar o check-in mais recente para este kid
+        const kidCheckins = (checkinsData || []).filter(c => c.kid_id === kid.id);
+        const currentCheckin = kidCheckins.length > 0 
+          ? kidCheckins.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())[0]
+          : undefined;
+        
+        return {
+          ...kid,
+          currentCheckin,
+        };
+      });
 
       if (isMounted.current) setKids(merged);
     } catch (error: any) {
@@ -77,7 +84,33 @@ export default function KidsScreen() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'kids_checkins' },
-        fetchKidsAndCheckins
+        (payload: any) => {
+          // Atualizar instantaneamente com os dados do evento
+          if (payload.eventType === 'UPDATE') {
+            const updatedCheckin = payload.new as KidCheckin;
+            setKids(prevKids =>
+              prevKids.map(kid => {
+                if (kid.id === updatedCheckin.kid_id) {
+                  // Se o check-in foi finalizado, remover do estado
+                  if (updatedCheckin.status === 'finalizado') {
+                    return {
+                      ...kid,
+                      currentCheckin: undefined,
+                    };
+                  }
+                  return {
+                    ...kid,
+                    currentCheckin: updatedCheckin,
+                  };
+                }
+                return kid;
+              })
+            );
+          } else {
+            // Para INSERT ou DELETE, recarregar
+            setTimeout(() => fetchKidsAndCheckins(), 300);
+          }
+        }
       )
       .subscribe();
 
@@ -108,10 +141,39 @@ export default function KidsScreen() {
     kidId: string,
     mode: 'checkin' | 'checkout'
   ) => {
+    // Verificar se já está processando este kid
+    if (processingRef.current.has(kidId)) {
+      Alert.alert('Aguarde', 'Esta solicitação já está sendo processada.');
+      return;
+    }
+
+    processingRef.current.add(kidId);
+
     try {
       setLoading(true);
 
       if (mode === 'checkin') {
+        // Verificar se já existe um check-in pendente ou aprovado para este kid
+        const { data: existingCheckin, error: checkError } = await supabase
+          .from('kids_checkins')
+          .select('id, status')
+          .eq('kid_id', kidId)
+          .in('status', ['pendente', 'aprovado'])
+          .order('criado_em', { ascending: false })
+          .limit(1)
+          .single();
+
+        // Se existe um check-in ativo, não permitir novo
+        if (existingCheckin && !checkError) {
+          Alert.alert(
+            'Solicitação Existente',
+            `Este filho já tem uma solicitação em andamento (Status: ${existingCheckin.status}).`
+          );
+          processingRef.current.delete(kidId);
+          setLoading(false);
+          return;
+        }
+
         const today = new Date().toISOString().split('T')[0];
 
         const { data: sessoes } = await supabase
@@ -155,11 +217,12 @@ export default function KidsScreen() {
           'Sua solicitação de entrada foi enviada.'
         );
       } else {
+        // Para checkout, atualizar o status para pendente (solicitação de saída)
         const { error } = await supabase
           .from('kids_checkins')
           .update({ status: 'pendente' })
           .eq('kid_id', kidId)
-          .neq('status', 'finalizado');
+          .eq('status', 'aprovado');
 
         if (error) throw error;
 
@@ -169,10 +232,13 @@ export default function KidsScreen() {
         );
       }
 
+      // Aguardar um pouco e depois recarregar os dados
+      await new Promise(resolve => setTimeout(resolve, 800));
       await fetchKidsAndCheckins();
     } catch (error: any) {
       Alert.alert('Erro', error.message);
     } finally {
+      processingRef.current.delete(kidId);
       setLoading(false);
     }
   };

@@ -22,6 +22,7 @@ import {
   View,
 } from 'react-native';
 
+import AdminDevScreen from '../screens/AdminDevScreen';
 import AoVivoScreen from '../screens/AoVivoScreen';
 import ContribuicoesScreen from '../screens/ContribuicoesScreen';
 import DevocionaisScreen from '../screens/DevocionaisScreen';
@@ -61,6 +62,7 @@ type DrawerParamList = {
   Eventos: undefined;
   'Perfil': undefined;
   'Kids Admin': undefined;
+  'Admin Dev': undefined;
 };
 
 type KidsStackParamList = {
@@ -94,7 +96,7 @@ function KidsStackNavigator() {
 
 export default function RootNavigator() {
   const { theme } = useTheme();
-  const { user, loading } = useAuth();
+  const { user, loading, hasRole } = useAuth();
 
   const base = theme.mode === 'dark' ? NavDarkTheme : NavDefaultTheme;
   const navTheme = {
@@ -158,7 +160,12 @@ export default function RootNavigator() {
           <Drawer.Screen name="Playlist de Louvor" component={PlaylistLouvorScreen} />
           <Drawer.Screen name="Eventos" component={EventosScreen} />
           <Drawer.Screen name="Perfil" component={ProfileScreen} />
-          <Drawer.Screen name="Kids Admin" component={KidsAdminScreen} options={{ title: 'Kids (Professor)' }} />
+          {hasRole('kids') && (
+            <Drawer.Screen name="Kids Admin" component={KidsAdminScreen} options={{ title: 'Kids (Professor)' }} />
+          )}
+          {hasRole('admin-dev') && (
+            <Drawer.Screen name="Admin Dev" component={AdminDevScreen} options={{ title: 'Gerenciador de Papéis' }} />
+          )}
         </Drawer.Navigator>
       ) : (
         <AuthStack.Navigator screenOptions={{ headerShown: false }}>
@@ -172,7 +179,7 @@ export default function RootNavigator() {
 
 function CustomDrawer(props: DrawerContentComponentProps) {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const activeKey = props.state.routeNames[props.state.index] as string;
 
   const [displayName, setDisplayName] = useState('');
@@ -239,6 +246,8 @@ function CustomDrawer(props: DrawerContentComponentProps) {
     }
   }
 
+  const { hasRole: userHasRole } = useAuth();
+
   const items: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'Home', label: 'Início', icon: 'home-outline' },
     { key: 'Igreja', label: 'Igreja', icon: 'business-outline' },
@@ -252,7 +261,8 @@ function CustomDrawer(props: DrawerContentComponentProps) {
     { key: 'KidsStack', label: 'Kids', icon: 'happy-outline' },
     { key: 'Playlist de Louvor', label: 'Playlist de Louvor', icon: 'musical-notes-outline' },
     { key: 'Eventos', label: 'Eventos', icon: 'calendar-outline' },
-    { key: 'Kids Admin', label: 'Kids (Professor)', icon: 'shield-checkmark-outline' },
+    ...(userHasRole('kids') ? [{ key: 'Kids Admin', label: 'Kids (Professor)', icon: 'shield-checkmark-outline' as const }] : []),
+    ...(userHasRole('admin-dev') ? [{ key: 'Admin Dev', label: 'Gerenciador de Papéis', icon: 'settings-outline' as const }] : []),
   ];
 
   return (

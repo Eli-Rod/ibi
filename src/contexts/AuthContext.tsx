@@ -9,6 +9,8 @@ type AuthContextData = {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  userRoles: string[];
+  hasRole: (role: string) => boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -19,6 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -39,6 +42,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const fetchUserRoles = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios_papeis')
+        .select('papel')
+        .eq('usuario_id', userId);
+      
+      if (error) throw error;
+      const roles = data?.map(r => r.papel) || [];
+      setUserRoles(roles);
+    } catch (error) {
+      console.error('Erro ao buscar papéis do usuário:', error);
+      setUserRoles([]);
+    }
+  };
+
+  const hasRole = (role: string): boolean => {
+    return userRoles.includes(role);
+  };
+
   const refreshProfile = async () => {
     if (user) {
       await fetchProfile(user.id);
@@ -50,7 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+        fetchUserRoles(session.user.id);
+      }
       setLoading(false);
     });
 
@@ -60,8 +86,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+        fetchUserRoles(session.user.id);
       } else {
         setProfile(null);
+        setUserRoles([]);
       }
       setLoading(false);
     });
@@ -76,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, refreshProfile, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, userRoles, hasRole, refreshProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   );
