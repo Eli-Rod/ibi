@@ -179,7 +179,7 @@ export default function RootNavigator() {
 
 function CustomDrawer(props: DrawerContentComponentProps) {
   const { theme } = useTheme();
-  const { user, hasRole } = useAuth();
+  const { user, hasRole, signOut } = useAuth();
   const activeKey = props.state.routeNames[props.state.index] as string;
 
   const [displayName, setDisplayName] = useState('');
@@ -191,11 +191,13 @@ function CustomDrawer(props: DrawerContentComponentProps) {
       
       // Listener para atualização instantânea do perfil (apelido, nome, etc)
       const profileSub = DeviceEventEmitter.addListener('profile.updated', (profileData) => {
-        updateNameFromProfile(profileData);
+        if (profileData) {
+          updateNameFromProfile(profileData);
+        }
       });
 
       // Listener para atualização da foto
-      const avatarSub = DeviceEventEmitter.addListener('user.avatarUpdated', (uri) => {
+      const avatarSub = DeviceEventEmitter.addListener('avatar.updated', (uri) => {
         setAvatarUri(uri);
       });
 
@@ -207,7 +209,9 @@ function CustomDrawer(props: DrawerContentComponentProps) {
           table: 'perfis',
           filter: `id=eq.${user.id}`
         }, (payload) => {
-          updateNameFromProfile(payload.new);
+          if (payload?.new) {
+            updateNameFromProfile(payload.new);
+          }
         })
         .subscribe();
 
@@ -220,29 +224,43 @@ function CustomDrawer(props: DrawerContentComponentProps) {
   }, [user]);
 
   async function fetchProfileData() {
-    const { data } = await supabase
-      .from('perfis')
-      .select('nome_completo, apelido')
-      .eq('id', user?.id)
-      .single();
-    
-    if (data) {
-      updateNameFromProfile(data);
-    } else {
-      setDisplayName(user?.email?.split('@')[0] || 'Membro');
-    }
+    try {
+      const { data, error } = await supabase
+        .from('perfis')
+        .select('nome_completo, apelido')
+        .eq('id', user?.id)
+        .single();
+      
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+        return;
+      }
 
-    const savedAvatar = await AsyncStorage.getItem('user.avatarUri');
-    setAvatarUri(savedAvatar);
+      if (data) {
+        updateNameFromProfile(data);
+      }
+
+      // Recuperar avatar do AsyncStorage com chave do usuario
+      if (user?.id) {
+        const savedAvatar = await AsyncStorage.getItem(`avatar_${user.id}`);
+        if (savedAvatar) {
+          setAvatarUri(savedAvatar);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados do perfil:', error);
+    }
   }
 
   function updateNameFromProfile(data: any) {
-    if (data.apelido) {
+    if (!data) {
+      return;
+    }
+    
+    if (data?.apelido && data.apelido.trim() !== '') {
       setDisplayName(data.apelido);
-    } else if (data.nome_completo) {
+    } else if (data?.nome_completo && data.nome_completo.trim() !== '') {
       setDisplayName(data.nome_completo.split(' ')[0]);
-    } else {
-      setDisplayName(user?.email?.split('@')[0] || 'Membro');
     }
   }
 
@@ -353,6 +371,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
             padding: 12,
             borderTopWidth: StyleSheet.hairlineWidth,
             borderTopColor: theme.colors.border,
+            gap: 8,
           }}
         >
           <Pressable
@@ -368,6 +387,21 @@ function CustomDrawer(props: DrawerContentComponentProps) {
           >
             <Ionicons name="settings-outline" size={20} color={theme.colors.text} />
             <ThemedText style={{ fontWeight: '700' }}>Perfil e Configurações</ThemedText>
+          </Pressable>
+          
+          <Pressable
+            onPress={signOut}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 12,
+              borderRadius: 12,
+            }}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <ThemedText style={{ fontWeight: '700', color: '#EF4444' }}>Sair do aplicativo</ThemedText>
           </Pressable>
         </View>
       </DrawerContentScrollView>

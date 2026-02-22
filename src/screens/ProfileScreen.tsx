@@ -32,12 +32,13 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
   const [nome, setNome] = useState('');
   const [apelido, setApelido] = useState('');
   const [celular, setCelular] = useState('');
   const [cep, setCep] = useState('');
-  const [logradouro, setLogradouro] = useState('');
+  const [endereco, setEndereco] = useState('');
   const [numero, setNumero] = useState('');
   const [complemento, setComplemento] = useState('');
   const [bairro, setBairro] = useState('');
@@ -49,13 +50,17 @@ export default function ProfileScreen() {
   const [lockEnabled, setLockEnabled] = useState(false);
 
   useEffect(() => {
+    loadAvatar();
+  }, [user?.id]);
+
+  useEffect(() => {
     if (profile) {
       const data = {
         nome: profile.nome_completo || '',
         apelido: profile.apelido || '',
         celular: profile.celular || '',
         cep: profile.cep || '',
-        logradouro: profile.logradouro || '',
+        endereco: profile.logradouro || '',
         numero: profile.numero || '',
         complemento: profile.complemento || '',
         bairro: profile.bairro || '',
@@ -69,7 +74,7 @@ export default function ProfileScreen() {
       setApelido(data.apelido);
       setCelular(data.celular);
       setCep(data.cep);
-      setLogradouro(data.logradouro);
+      setEndereco(data.endereco);
       setNumero(data.numero);
       setComplemento(data.complemento);
       setBairro(data.bairro);
@@ -89,6 +94,18 @@ export default function ProfileScreen() {
     })();
   }, []);
 
+  const loadAvatar = async () => {
+    if (!user?.id) return;
+    try {
+      const savedUri = await AsyncStorage.getItem(`avatar_${user.id}`);
+      if (savedUri) {
+        setAvatarUri(savedUri);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar avatar:', error);
+    }
+  };
+
   const handleCepBlur = async () => {
     const cleanCep = cep.replace(/\D/g, '');
     if (cleanCep.length !== 8) return;
@@ -98,7 +115,7 @@ export default function ProfileScreen() {
       const data = await response.json();
 
       if (!data.erro) {
-        setLogradouro(data.logradouro);
+        setEndereco(data.logradouro);
         setBairro(data.bairro);
         setCidade(data.localidade);
         setUf(data.uf);
@@ -109,22 +126,63 @@ export default function ProfileScreen() {
   };
 
   const handleSave = async () => {
+    // Validar campos obrigatorios
+    if (!nome || nome.trim() === '') {
+      Alert.alert('Validacao', 'Nome completo eh obrigatorio');
+      return;
+    }
+
+    // if (!celular || celular.trim() === '') {
+    //   Alert.alert('Validacao', 'Celular eh obrigatorio');
+    //   return;
+    // }
+
+    if (!cep || cep.trim() === '') {
+      Alert.alert('Preenchimento obrigatório', 'Favor informar o CEP');
+      return;
+    }
+
+    if (!endereco || endereco.trim() === '') {
+      Alert.alert('Preenchimento obrigatório', 'Favor informar o Endereco');
+      return;
+    }
+
+    if (!numero || numero.trim() === '') {
+      Alert.alert('Preenchimento obrigatório', 'Favor informar um Número');
+      return;
+    }
+
+    if (!bairro || bairro.trim() === '') {
+      Alert.alert('Preenchimento obrigatório', 'Favor informar o Bairro');
+      return;
+    }
+
+    if (!cidade || cidade.trim() === '') {
+      Alert.alert('Preenchimento obrigatório', 'Favor informar a Cidade');
+      return;
+    }
+
+    if (!uf || uf.trim() === '') {
+      Alert.alert('Preenchimento obrigatório', 'Favor informar a UF');
+      return;
+    }
+
     try {
       setLoading(true);
 
       const { error } = await supabase
         .from('perfis')
         .update({
-          nome_completo: nome,
-          apelido,
-          celular,
-          cep,
-          logradouro,
-          numero,
-          complemento,
-          bairro,
-          cidade,
-          uf,
+          nome_completo: nome.trim(),
+          apelido: apelido.trim(),
+          celular: celular.trim(),
+          cep: cep.trim(),
+          logradouro: endereco.trim(),
+          numero: numero.trim(),
+          complemento: complemento.trim(),
+          bairro: bairro.trim(),
+          cidade: cidade.trim(),
+          uf: uf.trim(),
         })
         .eq('id', user?.id);
 
@@ -147,7 +205,7 @@ export default function ProfileScreen() {
     setApelido(originalData.apelido);
     setCelular(originalData.celular);
     setCep(originalData.cep);
-    setLogradouro(originalData.logradouro);
+    setEndereco(originalData.endereco);
     setNumero(originalData.numero);
     setComplemento(originalData.complemento);
     setBairro(originalData.bairro);
@@ -169,37 +227,55 @@ export default function ProfileScreen() {
   };
 
   const uploadImage = async (uri: string) => {
+    // Validar se o nome esta preenchido antes de fazer upload
+    if (!nome || nome.trim() === '') {
+      Alert.alert('Validacao', 'Preencha o nome completo antes de fazer upload da foto');
+      return;
+    }
+
     try {
       setUploading(true);
 
-      const fileName = `${user?.id}/${Date.now()}.jpg`;
+      if (!user?.id) {
+        throw new Error('Usuario nao autenticado');
+      }
+
+      const fileName = `avatars/${user.id}.jpg`;
 
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
 
-      const { error } = await supabase.storage
+      // Converter base64 para Uint8Array para React Native
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const { error: uploadError } = await supabase.storage
         .from('midias-publicas')
-        .upload(fileName, Buffer.from(base64, 'base64'), {
+        .upload(fileName, bytes, {
           contentType: 'image/jpeg',
           upsert: true,
         });
 
-      if (error) throw error;
+      if (uploadError) throw uploadError;
 
       const {
         data: { publicUrl },
       } = supabase.storage.from('midias-publicas').getPublicUrl(fileName);
+      // Salvar a URL do avatar no cache local
+      await AsyncStorage.setItem(`avatar_${user.id}`, publicUrl);
+      setAvatarUri(publicUrl);
 
-      await supabase
-        .from('perfis')
-        .update({ avatar_url: publicUrl })
-        .eq('id', user?.id);
+      // Emitir evento para atualizar o menu
+      DeviceEventEmitter.emit('avatar.updated', publicUrl);
 
-      await refreshProfile();
-      DeviceEventEmitter.emit('profile.updated');
+      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
     } catch (e: any) {
-      Alert.alert('Erro no upload', e.message);
+      console.error('Erro no upload: ', e);
+      Alert.alert('Erro no upload', e.message || 'Nao foi possivel fazer upload da imagem');
     } finally {
       setUploading(false);
     }
@@ -208,7 +284,7 @@ export default function ProfileScreen() {
   async function toggleLock(value: boolean) {
     if (value) {
       if (!biometrySupported) {
-        Alert.alert('Indisponível', 'Biometria não suportada ou não cadastrada.');
+        Alert.alert('Indisponivel', 'Biometria nao suportada ou nao cadastrada.');
         return;
       }
 
@@ -237,9 +313,9 @@ export default function ProfileScreen() {
           <Pressable onPress={pickImage} style={styles.avatarContainer}>
             {uploading ? (
               <ActivityIndicator color={theme.colors.primary} />
-            ) : profile?.avatar_url ? (
+            ) : avatarUri ? (
               <Image
-                source={{ uri: `${profile.avatar_url}?t=${Date.now()}` }}
+                source={{ uri: `${avatarUri}?t=${Date.now()}` }}
                 style={styles.avatar}
               />
             ) : (
@@ -289,7 +365,7 @@ export default function ProfileScreen() {
                 activeTab === 'config' && styles.activeTabText,
               ]}
             >
-              Configurações
+              Configuracoes
             </ThemedText>
           </Pressable>
         </View>
@@ -339,13 +415,13 @@ export default function ProfileScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Apelido / Como quer ser chamado</ThemedText>
+                <ThemedText style={styles.label}>Apelido</ThemedText>
                 <TextInput
                   style={[styles.input, !isEditing && styles.disabledInput]}
                   value={apelido}
                   onChangeText={setApelido}
                   editable={isEditing}
-                  placeholder="Ex: Beto, Maria..."
+                  placeholder="Seu apelido"
                   placeholderTextColor={theme.colors.muted}
                 />
               </View>
@@ -357,15 +433,11 @@ export default function ProfileScreen() {
                   value={celular}
                   onChangeText={setCelular}
                   editable={isEditing}
-                  keyboardType="phone-pad"
-                  placeholder="(00) 00000-0000"
+                  placeholder="Seu celular"
                   placeholderTextColor={theme.colors.muted}
                 />
               </View>
-            </ThemedCard>
 
-            <ThemedText style={styles.sectionTitle}>Endereço</ThemedText>
-            <ThemedCard style={styles.card}>
               <View style={styles.inputGroup}>
                 <ThemedText style={styles.label}>CEP</ThemedText>
                 <TextInput
@@ -374,48 +446,46 @@ export default function ProfileScreen() {
                   onChangeText={setCep}
                   onBlur={handleCepBlur}
                   editable={isEditing}
-                  keyboardType="numeric"
-                  maxLength={9}
-                  placeholder="00000-000"
+                  placeholder="Seu CEP"
+                  placeholderTextColor={theme.colors.muted}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <ThemedText style={styles.label}>Endereco</ThemedText>
+                <TextInput
+                  style={[styles.input, !isEditing && styles.disabledInput]}
+                  value={endereco}
+                  onChangeText={setEndereco}
+                  editable={isEditing}
+                  placeholder="Seu endereco"
                   placeholderTextColor={theme.colors.muted}
                 />
               </View>
 
               <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={[styles.inputGroup, { flex: 3 }]}>
-                  <ThemedText style={styles.label}>Logradouro</ThemedText>
-                  <TextInput
-                    style={[styles.input, !isEditing && styles.disabledInput]}
-                    value={logradouro}
-                    onChangeText={setLogradouro}
-                    editable={isEditing}
-                    placeholder="Rua, Av..."
-                    placeholderTextColor={theme.colors.muted}
-                  />
-                </View>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <ThemedText style={styles.label}>Nº</ThemedText>
+                <View style={[styles.inputGroup, { flex: 2 }]}>
+                  <ThemedText style={styles.label}>Numero</ThemedText>
                   <TextInput
                     style={[styles.input, !isEditing && styles.disabledInput]}
                     value={numero}
                     onChangeText={setNumero}
                     editable={isEditing}
-                    placeholder="123"
+                    placeholder="Numero"
                     placeholderTextColor={theme.colors.muted}
                   />
                 </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.label}>Complemento</ThemedText>
-                <TextInput
-                  style={[styles.input, !isEditing && styles.disabledInput]}
-                  value={complemento}
-                  onChangeText={setComplemento}
-                  editable={isEditing}
-                  placeholder="Apto, Bloco..."
-                  placeholderTextColor={theme.colors.muted}
-                />
+                <View style={[styles.inputGroup, { flex: 3 }]}>
+                  <ThemedText style={styles.label}>Complemento</ThemedText>
+                  <TextInput
+                    style={[styles.input, !isEditing && styles.disabledInput]}
+                    value={complemento}
+                    onChangeText={setComplemento}
+                    editable={isEditing}
+                    placeholder="Complemento"
+                    placeholderTextColor={theme.colors.muted}
+                  />
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -429,7 +499,6 @@ export default function ProfileScreen() {
                   placeholderTextColor={theme.colors.muted}
                 />
               </View>
-
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={[styles.inputGroup, { flex: 3 }]}>
                   <ThemedText style={styles.label}>Cidade</ThemedText>
@@ -459,11 +528,10 @@ export default function ProfileScreen() {
             </ThemedCard>
           </View>
         )}
-
-        {/* CONFIGURAÇÕES */}
+        {/* CONFIGURACOES */}
         {activeTab === 'config' && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Aparência</ThemedText>
+            <ThemedText style={styles.sectionTitle}>Aparencia</ThemedText>
             <ThemedCard style={styles.configCard}>
               <View style={styles.configRow}>
                 <View>
@@ -497,8 +565,7 @@ export default function ProfileScreen() {
                 ))}
               </View>
             </ThemedCard>
-
-            <ThemedText style={styles.sectionTitle}>Segurança</ThemedText>
+            <ThemedText style={styles.sectionTitle}>Seguranca</ThemedText>
             <ThemedCard style={styles.configCard}>
               <View style={styles.configRow}>
                 <View style={{ flex: 1 }}>
@@ -506,7 +573,7 @@ export default function ProfileScreen() {
                   <ThemedText style={styles.configDesc}>
                     {biometrySupported 
                       ? 'Use digital ou reconhecimento facial' 
-                      : 'Não disponível neste dispositivo'}
+                      : 'Nao disponivel neste dispositivo'}
                   </ThemedText>
                 </View>
                 <Switch
@@ -518,17 +585,15 @@ export default function ProfileScreen() {
                 />
               </View>
             </ThemedCard>
-
             <ThemedText style={styles.sectionTitle}>Conta</ThemedText>
             <ThemedCard style={styles.configCard}>
               <View style={styles.configRow}>
                 <View>
                   <ThemedText style={styles.configTitle}>Sair da conta</ThemedText>
-                  <ThemedText style={styles.configDesc}>Encerrar sessão do aplicativo</ThemedText>
+                  <ThemedText style={styles.configDesc}>Encerrar sessao do aplicativo</ThemedText>
                 </View>
               </View>
             </ThemedCard>
-
             <Pressable onPress={signOut} style={styles.logoutBtn}>
               <Ionicons name="log-out-outline" size={20} color="#EF4444" />
               <ThemedText style={styles.logoutText}>Sair do aplicativo</ThemedText>

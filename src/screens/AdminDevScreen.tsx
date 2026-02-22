@@ -32,7 +32,7 @@ export default function AdminDevScreen() {
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const isMounted = useRef(true);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableRoles = ['admin', 'kids', 'membro', 'pastor', 'admin-dev'];
 

@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('perfis')
-        .select('*')
+        .select('id, nome_completo, apelido, celular, cep, logradouro, endereco, numero, complemento, bairro, cidade, uf, biometria_ativa')
         .eq('id', userId)
         .single();
       
@@ -64,7 +64,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id);
+      try {
+        await fetchProfile(user.id);
+      } catch (error) {
+        console.error('Erro ao atualizar perfil:', error);
+      }
     }
   };
 
