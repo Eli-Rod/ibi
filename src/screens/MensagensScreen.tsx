@@ -1,8 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import React from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { FlatList, Pressable, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import type { ColorValue } from 'react-native';
 import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
 import { MESSAGES_CONFIG } from '../config/messages';
 import { useTheme } from '../theme/ThemeProvider';
@@ -52,41 +55,117 @@ async function openExternalYouTube(videoId: string) {
   await Linking.openURL(can ? urlApp : urlWeb);
 }
 
-export default function MensagensScreen({ route }: any) {
+// Extrair data do título (formato: DD/MM/AAAA)
+function extractDateFromTitle(title: string): string {
+  const match = title.match(/(\d{2}\/\d{2}\/\d{4})/);
+  return match ? match[1] : '';
+}
+
+export default function MensagensScreen({ route, navigation }: any) {
   const { theme } = useTheme();
   const s = React.useMemo(() => makeStyles(theme), [theme]);
 
   const externalUrlFromRoute: string | undefined = route?.params?.externalUrl;
   const [selected, setSelected] = React.useState<Item | null>(null);
 
-  const renderItem = ({ item }: { item: Item }) => (
-    <ThemedCard>
-      <View style={s.row}>
-        <ThemedText style={s.title}>{item.title}</ThemedText>
+  const renderItem = ({ item, index }: { item: Item; index: number }) => {
+    const date = extractDateFromTitle(item.title);
+    const titleWithoutDate = item.title.replace(/\d{2}\/\d{2}\/\d{4}\s*-\s*/, '');
+    
+    // Cores diferentes para cada card baseado no índice - CORRIGIDO
+    const gradientColors: [ColorValue, ColorValue] = index === 0 
+      ? [theme.colors.primary + '40', theme.colors.primary + '80']
+      : index === 1
+      ? [theme.colors.success + '40', theme.colors.success + '80']
+      : [theme.colors.warning + '40', theme.colors.warning + '80'];
 
-        {MESSAGES_CONFIG.openMode === 'external-app' ? (
+    return (
+      <ThemedCard style={s.videoCard}>
+        {/* Thumbnail com gradiente */}
+        <TouchableOpacity
+          onPress={() => {
+            if (MESSAGES_CONFIG.openMode === 'external-app') {
+              openExternalYouTube(item.id);
+            } else {
+              setSelected(item);
+            }
+          }}
+          activeOpacity={0.9}
+        >
+          <View style={s.thumbnailContainer}>
+            <LinearGradient
+              colors={gradientColors}
+              style={s.thumbnailGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={s.playButton}>
+                <Ionicons name="play" size={30} color="#FFFFFF" />
+              </View>
+            </LinearGradient>
+          </View>
+        </TouchableOpacity>
+
+        {/* Informações do vídeo */}
+        <View style={s.videoInfo}>
+          <ThemedText style={s.videoTitle} numberOfLines={2}>
+            {titleWithoutDate}
+          </ThemedText>
+          
+          <View style={s.videoMeta}>
+            {date ? (
+              <>
+                <Ionicons name="calendar-outline" size={14} color={theme.colors.muted} />
+                <ThemedText style={s.videoDate}>{date}</ThemedText>
+              </>
+            ) : null}
+            <Ionicons name="time-outline" size={14} color={theme.colors.muted} />
+            <ThemedText style={s.videoDuration}>Culto</ThemedText>
+          </View>
+        </View>
+
+        {/* Ações do card */}
+        <View style={s.videoActions}>
+          <Pressable
+            onPress={() => {
+              if (MESSAGES_CONFIG.openMode === 'external-app') {
+                openExternalYouTube(item.id);
+              } else {
+                setSelected(item);
+              }
+            }}
+            style={[s.actionButton, s.actionButtonLeft]}
+          >
+            <Ionicons name="play-circle" size={20} color={theme.colors.primary} />
+            <ThemedText style={[s.actionButtonText, { color: theme.colors.primary }]}>
+              Assistir
+            </ThemedText>
+          </Pressable>
+
           <Pressable
             onPress={() => openExternalYouTube(item.id)}
-            style={s.videoButton}
+            style={s.actionButton}
           >
-            <ThemedText style={s.videoButtonText}>Assistir</ThemedText>
+            <Ionicons name="logo-youtube" size={20} color="#FF0000" />
+            <ThemedText style={[s.actionButtonText, { color: '#FF0000' }]}>
+              YouTube
+            </ThemedText>
           </Pressable>
-        ) : (
-          <Pressable
-            onPress={() => setSelected(item)}
-            style={s.videoButton}
-          >
-            <ThemedText style={s.videoButtonText}>Assistir</ThemedText>
-          </Pressable>
-        )}
-      </View>
-    </ThemedCard>
-  );
+        </View>
+      </ThemedCard>
+    );
+  };
 
   // 1️⃣ Página externa (canal / lista)
   if (externalUrlFromRoute) {
     return (
-      <ThemedView style={s.container}>
+      <ThemedView style={s.externalContainer}>
+        <View style={s.externalHeader}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <ThemedText style={s.externalTitle}>YouTube</ThemedText>
+        </View>
         <WebView
           style={s.webview}
           originWhitelist={['*']}
@@ -106,18 +185,29 @@ export default function MensagensScreen({ route }: any) {
     );
   }
 
-  // 2️⃣ Modo in-app
+  // 2️⃣ Modo in-app com vídeo selecionado
   if (MESSAGES_CONFIG.openMode === 'in-app' && selected) {
     const html = buildEmbedHtml(selected.id);
+    const titleWithoutDate = selected.title.replace(/\d{2}\/\d{2}\/\d{4}\s*-\s*/, '');
 
     return (
-      <ThemedView style={s.container}>
-        <ThemedCard>
-          <ThemedText style={s.title}>{selected.title}</ThemedText>
-        </ThemedCard>
+      <ThemedView style={s.videoPlayerContainer}>
+        {/* Header do player */}
+        <View style={s.videoPlayerHeader}>
+          <TouchableOpacity onPress={() => setSelected(null)} style={s.closeButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <ThemedText style={s.videoPlayerTitle} numberOfLines={1}>
+            {titleWithoutDate}
+          </ThemedText>
+          <TouchableOpacity onPress={() => openExternalYouTube(selected.id)} style={s.closeButton}>
+            <Ionicons name="logo-youtube" size={24} color="#FF0000" />
+          </TouchableOpacity>
+        </View>
 
+        {/* Player */}
         <WebView
-          style={s.webview}
+          style={s.videoPlayer}
           originWhitelist={['*']}
           source={{
             html,
@@ -142,21 +232,23 @@ export default function MensagensScreen({ route }: any) {
           onError={() => openExternalYouTube(selected.id)}
         />
 
-        <View style={s.actionsContainer}>
-          <Pressable onPress={() => setSelected(null)} style={s.videoButton}>
-            <ThemedText style={s.videoButtonText}>
-              Voltar à lista
-            </ThemedText>
-          </Pressable>
-
-          <Pressable
-            onPress={() => openExternalYouTube(selected.id)}
-            style={s.videoButton}
+        {/* Controles inferiores */}
+        <View style={s.playerControls}>
+          <TouchableOpacity
+            onPress={() => setSelected(null)}
+            style={s.playerControlButton}
           >
-            <ThemedText style={s.videoButtonText}>
-              Abrir no YouTube
-            </ThemedText>
-          </Pressable>
+            <Ionicons name="list" size={20} color="#FFFFFF" />
+            <ThemedText style={s.playerControlText}>Lista</ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openExternalYouTube(selected.id)}
+            style={s.playerControlButton}
+          >
+            <Ionicons name="logo-youtube" size={20} color="#FF0000" />
+            <ThemedText style={s.playerControlText}>YouTube</ThemedText>
+          </TouchableOpacity>
         </View>
       </ThemedView>
     );
@@ -170,6 +262,7 @@ export default function MensagensScreen({ route }: any) {
         data={MESSAGES_CONFIG.items}
         keyExtractor={(i) => i.id}
         renderItem={renderItem}
+        showsVerticalScrollIndicator={false}
       />
     </ThemedView>
   );
