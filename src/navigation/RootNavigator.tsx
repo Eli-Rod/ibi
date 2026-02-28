@@ -24,6 +24,7 @@ import {
 
 import AdminDevScreen from '../screens/AdminDevScreen';
 import AoVivoScreen from '../screens/AoVivoScreen';
+import CelulasScreen from '../screens/CelulasScreen';
 import ContribuicoesScreen from '../screens/ContribuicoesScreen';
 import DevocionaisScreen from '../screens/DevocionaisScreen';
 import EventosScreen from '../screens/EventosScreen';
@@ -51,6 +52,7 @@ type DrawerParamList = {
   Home: undefined;
   Igreja: undefined;
   'Ministérios': undefined;
+  'Células': undefined;
   'Notícias': undefined;
   'Mensagens': undefined;
   'Ao Vivo': undefined;
@@ -150,6 +152,7 @@ export default function RootNavigator() {
           <Drawer.Screen name="Home" component={Home} options={{ title: 'IBI' }} />
           <Drawer.Screen name="Igreja" component={IgrejaScreen} />
           <Drawer.Screen name="Ministérios" component={MinisteriosScreen} />
+          <Drawer.Screen name="Células" component={CelulasScreen} />
           <Drawer.Screen name="Notícias" component={NoticiasScreen} />
           <Drawer.Screen name="Mensagens" component={MensagensScreen} />
           <Drawer.Screen name="Ao Vivo" component={AoVivoScreen} />
@@ -270,6 +273,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
     { key: 'Home', label: 'Início', icon: 'home-outline' },
     { key: 'Igreja', label: 'Igreja', icon: 'business-outline' },
     { key: 'Ministérios', label: 'Ministérios', icon: 'people-outline' },
+    { key: 'Células', label: 'Células', icon: 'people-outline' },
     { key: 'Notícias', label: 'Notícias', icon: 'newspaper-outline' },
     { key: 'Mensagens', label: 'Mensagens', icon: 'videocam-outline' },
     { key: 'Ao Vivo', label: 'Ao Vivo', icon: 'radio-outline' },
@@ -285,48 +289,63 @@ function CustomDrawer(props: DrawerContentComponentProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <DrawerContentScrollView
-        {...props}
-        contentContainerStyle={{ paddingTop: 0, backgroundColor: theme.colors.background, flexGrow: 1 }}
+      {/* View do avatar fixa com zIndex */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          padding: 16,
+          paddingTop: 36,
+          backgroundColor: theme.colors.card,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: theme.colors.border,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          elevation: 5, // Para Android
+          shadowColor: '#000', // Para iOS
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        }}
       >
         <View
           style={{
-            padding: 16,
-            paddingTop: 36,
-            backgroundColor: theme.colors.card,
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: theme.colors.border,
-            flexDirection: 'row',
+            width: 54,
+            height: 54,
+            borderRadius: 27,
+            backgroundColor: theme.colors.border,
             alignItems: 'center',
-            gap: 12,
+            justifyContent: 'center',
+            overflow: 'hidden',
           }}
         >
-          <View
-            style={{
-              width: 54,
-              height: 54,
-              borderRadius: 27,
-              backgroundColor: theme.colors.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden'
-            }}
-          >
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={{ width: 54, height: 54 }} />
-            ) : (
-              <Ionicons name="person-outline" size={28} color={theme.colors.muted} />
-            )}
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <ThemedText style={{ fontSize: 18, fontWeight: '800' }}>Olá, {displayName}</ThemedText>
-            <ThemedText style={{ color: theme.colors.muted, fontSize: 12 }}>
-              Membro IBI
-            </ThemedText>
-          </View>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={{ width: 54, height: 54 }} />
+          ) : (
+            <Ionicons name="person-outline" size={28} color={theme.colors.muted} />
+          )}
         </View>
 
+        <View style={{ flex: 1 }}>
+          <ThemedText style={{ fontSize: 18, fontWeight: '800' }}>Olá, {displayName}</ThemedText>
+          <ThemedText style={{ color: theme.colors.muted, fontSize: 12 }}>
+            Membro IBI
+          </ThemedText>
+        </View>
+      </View>
+
+      <DrawerContentScrollView
+        {...props}
+        contentContainerStyle={{ 
+          paddingTop: 106, // Altura do avatar (padding 36 + altura 54 + gap 12 + padding 16 = ~106)
+          backgroundColor: theme.colors.background, 
+          flexGrow: 1 
+        }}
+      >
         <View style={{ padding: 8, gap: 4 }}>
           {items.map((it) => {
             const focused = activeKey === it.key;
