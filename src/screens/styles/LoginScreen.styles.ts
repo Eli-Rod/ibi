@@ -47,6 +47,31 @@ export const createStyles = (theme: AppTheme) =>
       backgroundColor: theme.colors.card,
     },
 
+    // Novo container para campo de senha com ícone
+    passwordContainer: {
+      height: 50,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: 12,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.card,
+    },
+
+    passwordInput: {
+      flex: 1,
+      height: '100%',
+      paddingHorizontal: 16,
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+
+    eyeIcon: {
+      paddingHorizontal: 12,
+      height: '100%',
+      justifyContent: 'center',
+    },
+
     button: {
       height: 50,
       borderRadius: 12,

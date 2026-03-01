@@ -24,6 +24,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -111,14 +112,26 @@ export default function LoginScreen() {
             />
 
             <ThemedText style={styles.label}>Senha</ThemedText>
-            <TextInput
-              style={styles.input}
-              placeholder="Sua senha"
-              placeholderTextColor={theme.colors.muted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Sua senha"
+                placeholderTextColor={theme.colors.muted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={24}
+                  color={theme.colors.muted}
+                />
+              </Pressable>
+            </View>
 
             <Pressable
               style={styles.button}

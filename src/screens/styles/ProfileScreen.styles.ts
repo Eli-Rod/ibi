@@ -143,6 +143,32 @@ export const createStyles = (theme: AppTheme) =>
       opacity: 0.6,
     },
 
+    /* ================= CAMPOS DE SENHA (ADICIONADOS) ================= */
+
+    passwordContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 14,
+      backgroundColor: theme.colors.background,
+      height: 50,
+    },
+
+    passwordInput: {
+      flex: 1,
+      height: '100%',
+      paddingHorizontal: 16,
+      fontSize: 15,
+      color: theme.colors.text,
+    },
+
+    eyeIcon: {
+      paddingHorizontal: 12,
+      height: '100%',
+      justifyContent: 'center',
+    },
+
     /* ================= ACTION BUTTONS ================= */
 
     actionsRow: {

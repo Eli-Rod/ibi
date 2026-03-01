@@ -21,8 +21,8 @@ import { ThemedCard, ThemedText } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
-import { createStyles } from './styles/ProfileScreen.styles';
 import { lookupCep } from '../utils/handleCepLookup';
+import { createStyles } from './styles/ProfileScreen.styles';
 
 export default function ProfileScreen() {
   const { theme, setMode } = useTheme();
@@ -30,6 +30,7 @@ export default function ProfileScreen() {
 
   const { user, profile, refreshProfile, signOut } = useAuth();
 
+  // Estados do perfil
   const [nome, setNome] = useState('');
   const [apelido, setApelido] = useState('');
   const [celular, setCelular] = useState('');
@@ -40,7 +41,7 @@ export default function ProfileScreen() {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
   const [uf, setUf] = useState('');
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -49,6 +50,11 @@ export default function ProfileScreen() {
   // Configurações
   const [biometrySupported, setBiometrySupported] = useState(false);
   const [lockEnabled, setLockEnabled] = useState(false);
+
+  // Estados para mostrar/ocultar senhas
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Alterar senha
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -93,14 +99,12 @@ export default function ProfileScreen() {
     if (!user?.id) return;
 
     try {
-      // Se tiver avatar_url no profile, usa ele
       if (profile?.avatar_url) {
         setAvatarUri(profile.avatar_url);
         await AsyncStorage.setItem(`avatar_${user.id}`, profile.avatar_url);
         return;
       }
 
-      // Se não tiver no profile, tenta do cache
       const cachedAvatar = await AsyncStorage.getItem(`avatar_${user.id}`);
       if (cachedAvatar) {
         setAvatarUri(cachedAvatar);
@@ -121,7 +125,6 @@ export default function ProfileScreen() {
   };
 
   const handleSave = async () => {
-    // Validações
     if (!nome.trim()) {
       Alert.alert('Validação', 'Nome completo é obrigatório');
       return;
@@ -217,12 +220,12 @@ export default function ProfileScreen() {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
       console.log('Iniciando upload para usuário:', user.id);
-      
+
       const fileName = `${user.id}.jpg`;
       console.log('Nome do arquivo:', fileName);
 
-      const base64 = await FileSystem.readAsStringAsync(uri, { 
-        encoding: FileSystem.EncodingType.Base64 
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64
       });
 
       const binaryString = atob(base64);
@@ -243,9 +246,9 @@ export default function ProfileScreen() {
 
       if (uploadError) {
         console.error('Erro no upload:', uploadError);
-        
+
         const errorMessage = uploadError.message.toLowerCase();
-        
+
         if (errorMessage.includes('54001') || errorMessage.includes('permission') || errorMessage.includes('policy')) {
           throw new Error('Erro de permissão no Storage. Verifique as políticas do bucket.');
         } else if (errorMessage.includes('size') || errorMessage.includes('large')) {
@@ -260,14 +263,14 @@ export default function ProfileScreen() {
       const { data: { publicUrl } } = supabase.storage
         .from('midias-publicas')
         .getPublicUrl(fileName);
-      
+
       const urlComTimestamp = `${publicUrl}?t=${Date.now()}`;
       console.log('URL gerada:', urlComTimestamp);
 
       console.log('Salvando URL no perfil...');
       const { error: updateError } = await supabase
         .from('perfis')
-        .update({ 
+        .update({
           avatar_url: urlComTimestamp,
           updated_at: new Date().toISOString()
         })
@@ -281,17 +284,17 @@ export default function ProfileScreen() {
       await AsyncStorage.setItem(`avatar_${user.id}`, urlComTimestamp);
       setAvatarUri(urlComTimestamp);
       await refreshProfile();
-      
+
       DeviceEventEmitter.emit('avatar.updated', urlComTimestamp);
       DeviceEventEmitter.emit('profile.updated', { avatar_url: urlComTimestamp });
 
       Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
-      
+
     } catch (e: any) {
       console.error('Erro detalhado:', e);
-      
+
       let errorMessage = 'Não foi possível fazer upload da imagem';
-      
+
       if (e.message) {
         const msg = e.message.toLowerCase();
         if (msg.includes('54001') || msg.includes('permission') || msg.includes('policy')) {
@@ -302,7 +305,7 @@ export default function ProfileScreen() {
           errorMessage = e.message;
         }
       }
-      
+
       Alert.alert('Erro no upload', errorMessage);
     } finally {
       setUploading(false);
@@ -321,10 +324,10 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               setUploading(true);
-              
+
               const { error } = await supabase
                 .from('perfis')
-                .update({ 
+                .update({
                   avatar_url: null,
                   updated_at: new Date().toISOString()
                 })
@@ -340,11 +343,11 @@ export default function ProfileScreen() {
               await AsyncStorage.removeItem(`avatar_${user?.id}`);
               setAvatarUri(null);
               await refreshProfile();
-              
+
               DeviceEventEmitter.emit('avatar.updated', null);
-              
+
               Alert.alert('Sucesso', 'Foto removida com sucesso!');
-              
+
             } catch (error: any) {
               console.error('Erro ao remover avatar:', error);
               Alert.alert('Erro', 'Não foi possível remover a foto');
@@ -373,18 +376,17 @@ export default function ProfileScreen() {
 
       await AsyncStorage.setItem('lock.enabled', 'true');
       setLockEnabled(true);
-      
+
       Alert.alert('Ativado', 'Bloqueio por biometria habilitado.');
     } else {
       await AsyncStorage.setItem('lock.enabled', 'false');
       setLockEnabled(false);
-      
+
       Alert.alert('Desativado', 'Bloqueio por biometria desabilitado.');
     }
   }
 
   const handleChangePassword = async () => {
-    // Validações
     if (!currentPassword) {
       Alert.alert('Erro', 'Digite sua senha atual');
       return;
@@ -405,7 +407,6 @@ export default function ProfileScreen() {
     setLoadingPassword(true);
 
     try {
-      // Primeiro, verificar se a senha atual está correta tentando fazer login
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user?.email || '',
         password: currentPassword,
@@ -415,21 +416,19 @@ export default function ProfileScreen() {
         throw new Error('Senha atual incorreta');
       }
 
-      // Se a senha atual estiver correta, atualizar para a nova senha
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
 
       if (updateError) throw updateError;
 
-      // Limpar campos e fechar formulário
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setShowPasswordForm(false);
-      
+
       Alert.alert('Sucesso', 'Senha alterada com sucesso!');
-      
+
     } catch (error: any) {
       console.error('Erro ao alterar senha:', error);
       Alert.alert('Erro', error.message || 'Não foi possível alterar a senha');
@@ -472,11 +471,11 @@ export default function ProfileScreen() {
 
         {avatarUri && !uploading && (
           <TouchableOpacity
-            style={[styles.editBadge, { 
-              backgroundColor: '#EF4444', 
+            style={[styles.editBadge, {
+              backgroundColor: '#EF4444',
               position: 'absolute',
-              right: 110, 
-              top: 20 
+              right: 110,
+              top: 20
             }]}
             onPress={removeAvatar}
           >
@@ -539,7 +538,7 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Nome Completo *</ThemedText>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput, { 
+                style={[styles.input, !isEditing && styles.disabledInput, {
                   backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                   color: theme.colors.text,
                   borderColor: theme.colors.border
@@ -554,7 +553,7 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Apelido</ThemedText>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput, { 
+                style={[styles.input, !isEditing && styles.disabledInput, {
                   backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                   color: theme.colors.text,
                   borderColor: theme.colors.border
@@ -569,7 +568,7 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Celular *</ThemedText>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput, { 
+                style={[styles.input, !isEditing && styles.disabledInput, {
                   backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                   color: theme.colors.text,
                   borderColor: theme.colors.border
@@ -589,7 +588,7 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>CEP *</ThemedText>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput, { 
+                style={[styles.input, !isEditing && styles.disabledInput, {
                   backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                   color: theme.colors.text,
                   borderColor: theme.colors.border
@@ -605,7 +604,7 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Endereço *</ThemedText>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput, { 
+                style={[styles.input, !isEditing && styles.disabledInput, {
                   backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                   color: theme.colors.text,
                   borderColor: theme.colors.border
@@ -621,7 +620,7 @@ export default function ProfileScreen() {
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <ThemedText style={styles.label}>Número *</ThemedText>
                 <TextInput
-                  style={[styles.input, !isEditing && styles.disabledInput, { 
+                  style={[styles.input, !isEditing && styles.disabledInput, {
                     backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                     color: theme.colors.text,
                     borderColor: theme.colors.border
@@ -636,7 +635,7 @@ export default function ProfileScreen() {
               <View style={[styles.inputGroup, { flex: 2 }]}>
                 <ThemedText style={styles.label}>Complemento</ThemedText>
                 <TextInput
-                  style={[styles.input, !isEditing && styles.disabledInput, { 
+                  style={[styles.input, !isEditing && styles.disabledInput, {
                     backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                     color: theme.colors.text,
                     borderColor: theme.colors.border
@@ -652,7 +651,7 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <ThemedText style={styles.label}>Bairro *</ThemedText>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput, { 
+                style={[styles.input, !isEditing && styles.disabledInput, {
                   backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                   color: theme.colors.text,
                   borderColor: theme.colors.border
@@ -668,7 +667,7 @@ export default function ProfileScreen() {
               <View style={[styles.inputGroup, { flex: 3 }]}>
                 <ThemedText style={styles.label}>Cidade *</ThemedText>
                 <TextInput
-                  style={[styles.input, !isEditing && styles.disabledInput, { 
+                  style={[styles.input, !isEditing && styles.disabledInput, {
                     backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                     color: theme.colors.text,
                     borderColor: theme.colors.border
@@ -683,7 +682,7 @@ export default function ProfileScreen() {
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <ThemedText style={styles.label}>UF *</ThemedText>
                 <TextInput
-                  style={[styles.input, !isEditing && styles.disabledInput, { 
+                  style={[styles.input, !isEditing && styles.disabledInput, {
                     backgroundColor: isEditing ? theme.colors.background : theme.colors.card,
                     color: theme.colors.text,
                     borderColor: theme.colors.border
@@ -725,10 +724,10 @@ export default function ProfileScreen() {
                     alignItems: 'center'
                   })}
                 >
-                  <ThemedText style={{ 
-                    fontSize: 12, 
+                  <ThemedText style={{
+                    fontSize: 12,
                     fontWeight: '700',
-                    color: theme.mode === m ? theme.colors.primary : theme.colors.text 
+                    color: theme.mode === m ? theme.colors.primary : theme.colors.text
                   }}>
                     {m === 'light' ? 'Claro' : m === 'dark' ? 'Escuro' : 'Sistema'}
                   </ThemedText>
@@ -744,10 +743,10 @@ export default function ProfileScreen() {
               <View style={{ flex: 1 }}>
                 <ThemedText style={styles.configTitle}>Bloqueio por Biometria</ThemedText>
                 <ThemedText style={styles.configDesc}>
-                  {biometrySupported 
-                    ? lockEnabled 
-                      ? 'Biometria ativa - use digital ao abrir o app' 
-                      : 'Use digital ou reconhecimento facial' 
+                  {biometrySupported
+                    ? lockEnabled
+                      ? 'Biometria ativa - use digital ao abrir o app'
+                      : 'Use digital ou reconhecimento facial'
                     : 'Não disponível neste dispositivo'}
                 </ThemedText>
               </View>
@@ -764,8 +763,8 @@ export default function ProfileScreen() {
 
             {/* ALTERAR SENHA */}
             <View>
-              <Pressable 
-                onPress={() => setShowPasswordForm(!showPasswordForm)} 
+              <Pressable
+                onPress={() => setShowPasswordForm(!showPasswordForm)}
                 style={styles.configRow}
               >
                 <View style={{ flex: 1 }}>
@@ -774,67 +773,103 @@ export default function ProfileScreen() {
                     {showPasswordForm ? 'Clique para fechar' : 'Altere sua senha de acesso'}
                   </ThemedText>
                 </View>
-                <Ionicons 
-                  name={showPasswordForm ? 'chevron-up' : 'chevron-forward'} 
-                  size={20} 
-                  color={theme.colors.muted} 
+                <Ionicons
+                  name={showPasswordForm ? 'chevron-up' : 'chevron-forward'}
+                  size={20}
+                  color={theme.colors.muted}
                 />
               </Pressable>
 
               {showPasswordForm && (
-                <View style={{ marginTop: 16, gap: 12 }}>
+                <View style={{ marginTop: 20, gap: 16 }}>
+                  {/* Senha Atual */}
                   <View style={styles.inputGroup}>
                     <ThemedText style={styles.label}>Senha Atual</ThemedText>
-                    <TextInput
-                      style={[styles.input, { 
-                        backgroundColor: theme.colors.background,
-                        color: theme.colors.text,
-                        borderColor: theme.colors.border
-                      }]}
-                      value={currentPassword}
-                      onChangeText={setCurrentPassword}
-                      secureTextEntry
-                      placeholder="Digite sua senha atual"
-                      placeholderTextColor={theme.colors.muted}
-                    />
+                    <View style={[styles.passwordContainer, {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.background
+                    }]}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={currentPassword}
+                        onChangeText={setCurrentPassword}
+                        secureTextEntry={!showCurrentPassword}
+                        placeholder="Digite sua senha atual"
+                        placeholderTextColor={theme.colors.muted}
+                      />
+                      <Pressable
+                        onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                        style={styles.eyeIcon}
+                      >
+                        <Ionicons
+                          name={showCurrentPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={22}
+                          color={theme.colors.muted}
+                        />
+                      </Pressable>
+                    </View>
                   </View>
 
+                  {/* Nova Senha */}
                   <View style={styles.inputGroup}>
                     <ThemedText style={styles.label}>Nova Senha</ThemedText>
-                    <TextInput
-                      style={[styles.input, { 
-                        backgroundColor: theme.colors.background,
-                        color: theme.colors.text,
-                        borderColor: theme.colors.border
-                      }]}
-                      value={newPassword}
-                      onChangeText={setNewPassword}
-                      secureTextEntry
-                      placeholder="Mínimo 6 caracteres"
-                      placeholderTextColor={theme.colors.muted}
-                    />
+                    <View style={[styles.passwordContainer, {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.background
+                    }]}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNewPassword}
+                        placeholder="Mínimo 6 caracteres"
+                        placeholderTextColor={theme.colors.muted}
+                      />
+                      <Pressable
+                        onPress={() => setShowNewPassword(!showNewPassword)}
+                        style={styles.eyeIcon}
+                      >
+                        <Ionicons
+                          name={showNewPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={22}
+                          color={theme.colors.muted}
+                        />
+                      </Pressable>
+                    </View>
                   </View>
 
+                  {/* Confirmar Nova Senha */}
                   <View style={styles.inputGroup}>
                     <ThemedText style={styles.label}>Confirmar Nova Senha</ThemedText>
-                    <TextInput
-                      style={[styles.input, { 
-                        backgroundColor: theme.colors.background,
-                        color: theme.colors.text,
-                        borderColor: theme.colors.border
-                      }]}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      secureTextEntry
-                      placeholder="Confirme a nova senha"
-                      placeholderTextColor={theme.colors.muted}
-                    />
+                    <View style={[styles.passwordContainer, {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.background
+                    }]}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPassword}
+                        placeholder="Confirme a nova senha"
+                        placeholderTextColor={theme.colors.muted}
+                      />
+                      <Pressable
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={styles.eyeIcon}
+                      >
+                        <Ionicons
+                          name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={22}
+                          color={theme.colors.muted}
+                        />
+                      </Pressable>
+                    </View>
                   </View>
 
                   <Pressable
                     onPress={handleChangePassword}
                     disabled={loadingPassword}
-                    style={[styles.saveBtn, { 
+                    style={[styles.saveBtn, {
                       backgroundColor: theme.colors.primary,
                       marginTop: 8,
                       opacity: loadingPassword ? 0.7 : 1
