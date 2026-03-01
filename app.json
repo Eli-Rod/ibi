@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/logoIbi.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.eli.rod.ibi"
     },
     "web": {
       "output": "static",
@@ -47,7 +48,11 @@
     },
     "extra": {
       "YOUTUBE_API_KEY": "COLE_SUA_API_KEY_AQUI",
-      "YOUTUBE_CHANNEL_ID": "UCxxxxxxxxxxxxxxxx" // opcional: pode deixar vazio e setar depois
+      "YOUTUBE_CHANNEL_ID": "UCxxxxxxxxxxxxxxxx",
+      "router": {},
+      "eas": {
+        "projectId": "c2af779e-e5b1-447a-9718-ed03f511a3cb"
+      }
     }
   }
 }

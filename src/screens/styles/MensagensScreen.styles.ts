@@ -11,7 +11,7 @@ export const makeStyles = (theme: AppTheme) =>
       padding: theme.spacing(2),
       gap: theme.spacing(2),
     },
-    
+
     // Card de vídeo
     videoCard: {
       borderRadius: theme.radius,
@@ -25,7 +25,7 @@ export const makeStyles = (theme: AppTheme) =>
       shadowRadius: 4,
       elevation: 3,
     },
-    
+
     // Thumbnail do vídeo (placeholder)
     thumbnailContainer: {
       width: '100%',
@@ -54,7 +54,7 @@ export const makeStyles = (theme: AppTheme) =>
       borderWidth: 2,
       borderColor: '#FFFFFF',
     },
-    
+
     // Info do vídeo
     videoInfo: {
       padding: theme.spacing(2),
@@ -79,7 +79,7 @@ export const makeStyles = (theme: AppTheme) =>
       fontSize: 12,
       color: theme.colors.muted,
     },
-    
+
     // Ações do card
     videoActions: {
       flexDirection: 'row',
@@ -103,7 +103,7 @@ export const makeStyles = (theme: AppTheme) =>
       fontSize: 14,
       fontWeight: '600',
     },
-    
+
     // Tela de vídeo em reprodução
     videoPlayerContainer: {
       flex: 1,
@@ -131,7 +131,7 @@ export const makeStyles = (theme: AppTheme) =>
     videoPlayer: {
       flex: 1,
     },
-    
+
     // Tela de lista externa (YouTube)
     externalContainer: {
       flex: 1,
@@ -153,7 +153,7 @@ export const makeStyles = (theme: AppTheme) =>
     webview: {
       flex: 1,
     },
-    
+
     // Controles do player
     playerControls: {
       flexDirection: 'row',
@@ -178,11 +178,34 @@ export const makeStyles = (theme: AppTheme) =>
       fontWeight: '600',
       color: '#FFFFFF',
     },
-    
+
     // Loading
     loadingContainer: {
       padding: theme.spacing(5),
       alignItems: 'center',
       justifyContent: 'center',
+    },
+
+    // Adicione dentro do objeto de estilos:
+
+    thumbnailImage: {
+      width: '100%',
+      height: '100%',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+
+    thumbnailOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
   });

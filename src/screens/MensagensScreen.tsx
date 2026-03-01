@@ -2,16 +2,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import React from 'react';
-import { FlatList, Pressable, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Pressable, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import type { ColorValue } from 'react-native';
 import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
 import { MESSAGES_CONFIG } from '../config/messages';
 import { useTheme } from '../theme/ThemeProvider';
 import { makeStyles } from './styles/MensagensScreen.styles';
 
 type Item = { id: string; title: string };
+
+// URL da thumbnail do YouTube
+function getYouTubeThumbnail(videoId: string, quality: 'maxres' | 'high' | 'medium' | 'default' = 'maxres') {
+  // Qualidades disponíveis:
+  // maxresdefault.jpg - 1280x720 (melhor qualidade)
+  // hqdefault.jpg - 480x360
+  // mqdefault.jpg - 320x180
+  // sddefault.jpg - 640x480
+  // default.jpg - 120x90
+  return `https://img.youtube.com/vi/${videoId}/${quality}default.jpg`;
+}
 
 /** HTML completo com IFRAME correto + referrer policy */
 function buildEmbedHtml(videoId: string) {
@@ -67,21 +77,21 @@ export default function MensagensScreen({ route, navigation }: any) {
 
   const externalUrlFromRoute: string | undefined = route?.params?.externalUrl;
   const [selected, setSelected] = React.useState<Item | null>(null);
+  const [imageErrors, setImageErrors] = React.useState<Record<string, boolean>>({});
+
+  const handleImageError = (videoId: string) => {
+    setImageErrors(prev => ({ ...prev, [videoId]: true }));
+  };
 
   const renderItem = ({ item, index }: { item: Item; index: number }) => {
     const date = extractDateFromTitle(item.title);
     const titleWithoutDate = item.title.replace(/\d{2}\/\d{2}\/\d{4}\s*-\s*/, '');
-    
-    // Cores diferentes para cada card baseado no índice - CORRIGIDO
-    const gradientColors: [ColorValue, ColorValue] = index === 0 
-      ? [theme.colors.primary + '40', theme.colors.primary + '80']
-      : index === 1
-      ? [theme.colors.success + '40', theme.colors.success + '80']
-      : [theme.colors.warning + '40', theme.colors.warning + '80'];
+    const thumbnailUrl = getYouTubeThumbnail(item.id, 'maxres');
+    const hasImageError = imageErrors[item.id];
 
     return (
       <ThemedCard style={s.videoCard}>
-        {/* Thumbnail com gradiente */}
+        {/* Thumbnail real do YouTube */}
         <TouchableOpacity
           onPress={() => {
             if (MESSAGES_CONFIG.openMode === 'external-app') {
@@ -93,16 +103,29 @@ export default function MensagensScreen({ route, navigation }: any) {
           activeOpacity={0.9}
         >
           <View style={s.thumbnailContainer}>
-            <LinearGradient
-              colors={gradientColors}
-              style={s.thumbnailGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
+            {!hasImageError ? (
+              <Image
+                source={{ uri: thumbnailUrl }}
+                style={s.thumbnailImage}
+                resizeMode="cover"
+                onError={() => handleImageError(item.id)}
+              />
+            ) : (
+              // Fallback gradiente se a imagem não carregar
+              <LinearGradient
+                colors={[theme.colors.primary + '40', theme.colors.primary + '80']}
+                style={s.thumbnailGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              />
+            )}
+            
+            {/* Overlay escuro para destacar o botão play */}
+            <View style={s.thumbnailOverlay}>
               <View style={s.playButton}>
                 <Ionicons name="play" size={30} color="#FFFFFF" />
               </View>
-            </LinearGradient>
+            </View>
           </View>
         </TouchableOpacity>
 
