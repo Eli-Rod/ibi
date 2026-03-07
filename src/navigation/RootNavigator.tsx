@@ -301,7 +301,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
   const items: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'Home', label: 'Início', icon: 'home-outline' },
     { key: 'Igreja', label: 'Igreja', icon: 'business-outline' },
-    { key: 'Ministérios', label: 'Ministérios', icon: 'people-outline' },
+    { key: 'Ministérios', label: 'Ministérios', icon: 'list-circle-outline' },
     { key: 'Células', label: 'Células', icon: 'people-outline' },
     { key: 'Notícias', label: 'Notícias', icon: 'newspaper-outline' },
     { key: 'Mensagens', label: 'Mensagens', icon: 'videocam-outline' },

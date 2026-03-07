@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { DeviceEventEmitter } from 'react-native';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Alert, DeviceEventEmitter } from 'react-native';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types/content';
 
@@ -13,6 +14,7 @@ type AuthContextData = {
   hasRole: (role: string) => boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
+  clearSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -23,6 +25,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Ref para controlar tentativas de refresh
+  const refreshAttempts = useRef(0);
+  const maxRefreshAttempts = 3;
+
+  // Função para limpar sessão local completamente
+  const clearSession = async () => {
+    try {
+      console.log('🧹 Limpando sessão local...');
+      
+      // Limpar apenas localmente sem chamar API
+      await supabase.auth.signOut({ scope: 'local' });
+      
+      // Limpar AsyncStorage manualmente
+      const keys = await AsyncStorage.getAllKeys();
+      const authKeys = keys.filter(key => 
+        key.includes('supabase') || 
+        key.includes('sb-') || 
+        key.includes('auth')
+      );
+      
+      if (authKeys.length > 0) {
+        await AsyncStorage.multiRemove(authKeys);
+      }
+      
+      // Resetar estados
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setUserRoles([]);
+      
+      console.log('✅ Sessão local limpa com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao limpar sessão:', error);
+    }
+  };
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -34,7 +72,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       setProfile(data);
-      // Emitir evento quando o perfil é carregado
       DeviceEventEmitter.emit('profile.updated', data);
     } catch (error) {
       console.error('Erro ao buscar perfil:', error);
@@ -72,43 +109,183 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  useEffect(() => {
-    // Busca a sessão atual ao iniciar
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-        fetchUserRoles(session.user.id);
+  // Função para lidar com erros de refresh token
+  const handleAuthError = async (error: any) => {
+    if (!error) return false;
+    
+    const errorMessage = error?.message || '';
+    const errorCode = error?.code || '';
+    
+    // Detectar erro de refresh token inválido
+    if (errorMessage.includes('Invalid Refresh Token') || 
+        errorMessage.includes('Refresh Token Not Found') ||
+        errorCode === 'refresh_token_not_found' ||
+        error?.status === 401) {
+      
+      console.log('⚠️ Erro de refresh token detectado:', errorMessage);
+      
+      refreshAttempts.current += 1;
+      
+      if (refreshAttempts.current >= maxRefreshAttempts) {
+        console.log('🔄 Máximo de tentativas atingido. Limpando sessão...');
+        await clearSession();
+        refreshAttempts.current = 0;
+        return true;
       }
-      setLoading(false);
-    });
+      
+      // Tentar recuperar a sessão
+      try {
+        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !session) {
+          console.log('❌ Falha ao recuperar sessão:', refreshError);
+          await clearSession();
+          refreshAttempts.current = 0;
+          return true;
+        }
+        
+        console.log('✅ Sessão recuperada com sucesso');
+        refreshAttempts.current = 0;
+        return false;
+      } catch (e) {
+        console.log('❌ Exceção ao recuperar sessão:', e);
+        await clearSession();
+        refreshAttempts.current = 0;
+        return true;
+      }
+    }
+    
+    return false;
+  };
 
-    // Escuta mudanças na autenticação (login, logout, etc)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-        fetchUserRoles(session.user.id);
-      } else {
-        setProfile(null);
-        setUserRoles([]);
+  // Adicionar listener global para erros do Supabase
+  useEffect(() => {
+    const subscription = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Auth state changed:', event);
+      
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('✅ Token refreshed successfully');
+        refreshAttempts.current = 0;
       }
-      setLoading(false);
+      
+      if (event === 'USER_UPDATED') {
+        console.log('👤 User updated');
+      }
+      
+      if (event === 'SIGNED_OUT') {
+        console.log('🚪 User signed out');
+        await clearSession();
+      }
     });
 
     return () => {
+      subscription.data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // Busca a sessão atual ao iniciar
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          const wasCleared = await handleAuthError(error);
+          if (wasCleared && mounted) {
+            setLoading(false);
+            return;
+          }
+        }
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await Promise.all([
+              fetchProfile(session.user.id),
+              fetchUserRoles(session.user.id)
+            ]);
+          }
+          setLoading(false);
+        }
+      } catch (error: any) {
+        console.error('Erro na inicialização da auth:', error);
+        await handleAuthError(error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    // Escuta mudanças na autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('📡 Auth state change:', event);
+      
+      if (mounted) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await Promise.all([
+            fetchProfile(session.user.id),
+            fetchUserRoles(session.user.id)
+          ]);
+        } else {
+          setProfile(null);
+          setUserRoles([]);
+        }
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      setLoading(true);
+      
+      // Tentar fazer logout normalmente
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.log('Erro no signOut normal, forçando limpeza local:', error);
+        await clearSession();
+      } else {
+        // Limpeza adicional para garantir
+        await clearSession();
+      }
+      
+      Alert.alert('Sucesso', 'Você saiu da sua conta.');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      // Em caso de erro, limpar localmente
+      await clearSession();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, userRoles, hasRole, refreshProfile, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      loading, 
+      userRoles, 
+      hasRole, 
+      refreshProfile, 
+      signOut,
+      clearSession 
+    }}>
       {children}
     </AuthContext.Provider>
   );
