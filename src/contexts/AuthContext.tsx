@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, DeviceEventEmitter } from 'react-native';
+import { registerForPushNotificationsAsync } from '../services/notificationService';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types/content';
 
@@ -29,6 +30,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Ref para controlar tentativas de refresh
   const refreshAttempts = useRef(0);
   const maxRefreshAttempts = 3;
+
+  // Função para salvar push token no banco
+  const savePushToken = async (userId: string) => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        console.log('📱 Salvando push token:', token);
+        
+        // Verificar se já existe um token para este usuário
+        const { data: existingToken } = await supabase
+          .from('user_push_tokens')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (existingToken) {
+          // Atualizar token existente
+          const { error } = await supabase
+            .from('user_push_tokens')
+            .update({
+              push_token: token,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId);
+
+          if (error) throw error;
+          console.log('✅ Push token atualizado');
+        } else {
+          // Inserir novo token
+          const { error } = await supabase
+            .from('user_push_tokens')
+            .insert({
+              user_id: userId,
+              push_token: token,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+
+          if (error) throw error;
+          console.log('✅ Push token salvo');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao salvar push token:', error);
+    }
+  };
 
   // Função para limpar sessão local completamente
   const clearSession = async () => {
@@ -66,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('perfis')
-        .select('id, nome_completo, apelido, celular, cep, logradouro, endereco, numero, complemento, bairro, cidade, uf, biometria_ativa')
+        .select('id, nome_completo, apelido, celular, cep, logradouro, endereco, numero, complemento, bairro, cidade, uf, biometria_ativa, avatar_url')
         .eq('id', userId)
         .single();
       
@@ -208,6 +255,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               fetchProfile(session.user.id),
               fetchUserRoles(session.user.id)
             ]);
+            
+            // Salvar push token quando o usuário estiver logado
+            await savePushToken(session.user.id);
           }
           setLoading(false);
         }
@@ -235,6 +285,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fetchProfile(session.user.id),
             fetchUserRoles(session.user.id)
           ]);
+          
+          // Salvar push token quando o usuário fizer login
+          await savePushToken(session.user.id);
         } else {
           setProfile(null);
           setUserRoles([]);
