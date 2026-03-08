@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, DeviceEventEmitter } from 'react-native';
-import { registerForPushNotificationsAsync } from '../services/notificationService';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types/content';
 
@@ -20,7 +19,7 @@ type AuthContextData = {
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -31,14 +30,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshAttempts = useRef(0);
   const maxRefreshAttempts = 3;
 
-  // Função para salvar push token no banco
+  // Função para salvar push token no banco (DESABILITADA TEMPORARIAMENTE)
   const savePushToken = async (userId: string) => {
+    // 🔇 Desabilitado para evitar erro no Expo Go
+    return;
+    
+    /* Código original comentado para referência futura
     try {
       const token = await registerForPushNotificationsAsync();
       if (token) {
         console.log('📱 Salvando push token:', token);
         
-        // Verificar se já existe um token para este usuário
         const { data: existingToken } = await supabase
           .from('user_push_tokens')
           .select('id')
@@ -46,7 +48,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (existingToken) {
-          // Atualizar token existente
           const { error } = await supabase
             .from('user_push_tokens')
             .update({
@@ -58,7 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (error) throw error;
           console.log('✅ Push token atualizado');
         } else {
-          // Inserir novo token
           const { error } = await supabase
             .from('user_push_tokens')
             .insert({
@@ -75,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('❌ Erro ao salvar push token:', error);
     }
+    */
   };
 
   // Função para limpar sessão local completamente
@@ -163,7 +164,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const errorMessage = error?.message || '';
     const errorCode = error?.code || '';
     
-    // Detectar erro de refresh token inválido
     if (errorMessage.includes('Invalid Refresh Token') || 
         errorMessage.includes('Refresh Token Not Found') ||
         errorCode === 'refresh_token_not_found' ||
@@ -180,7 +180,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return true;
       }
       
-      // Tentar recuperar a sessão
       try {
         const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
         
@@ -235,7 +234,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeAuth = async () => {
       try {
-        // Busca a sessão atual ao iniciar
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -256,8 +254,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               fetchUserRoles(session.user.id)
             ]);
             
-            // Salvar push token quando o usuário estiver logado
-            await savePushToken(session.user.id);
+            // 🔇 Salvar push token desabilitado
+            // await savePushToken(session.user.id);
           }
           setLoading(false);
         }
@@ -272,7 +270,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth();
 
-    // Escuta mudanças na autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('📡 Auth state change:', event);
       
@@ -286,8 +283,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fetchUserRoles(session.user.id)
           ]);
           
-          // Salvar push token quando o usuário fizer login
-          await savePushToken(session.user.id);
+          // 🔇 Salvar push token desabilitado
+          // await savePushToken(session.user.id);
         } else {
           setProfile(null);
           setUserRoles([]);
@@ -306,21 +303,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       
-      // Tentar fazer logout normalmente
       const { error } = await supabase.auth.signOut();
       
       if (error) {
         console.log('Erro no signOut normal, forçando limpeza local:', error);
         await clearSession();
       } else {
-        // Limpeza adicional para garantir
         await clearSession();
       }
       
       Alert.alert('Sucesso', 'Você saiu da sua conta.');
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
-      // Em caso de erro, limpar localmente
       await clearSession();
     } finally {
       setLoading(false);

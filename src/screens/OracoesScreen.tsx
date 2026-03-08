@@ -19,7 +19,8 @@ import {
 } from 'react-native';
 import { ThemedText, ThemedView } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
-import { cancelPrayerReminder, schedulePrayerReminder } from '../services/notificationService';
+// 🔇 Imports de notificações desabilitados temporariamente
+// import { cancelPrayerReminder, schedulePrayerReminder } from '../services/notificationService';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
 import { createStyles } from './styles/OracoesScreen.styles';
@@ -82,7 +83,7 @@ const availableTags = [
 const PrayerLoadingSkeleton = () => {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  
+
   return (
     <View style={styles.loadingSkeleton}>
       {/* Header Skeleton */}
@@ -99,7 +100,7 @@ const PrayerLoadingSkeleton = () => {
         <View style={[styles.skeletonLine, { width: '80%', height: 20 }]} />
         <View style={[styles.skeletonLine, { width: '100%', height: 16 }]} />
         <View style={[styles.skeletonLine, { width: '90%', height: 16 }]} />
-        
+
         {/* Tags Skeleton */}
         <View style={styles.skeletonTags}>
           {[1, 2, 3].map(i => (
@@ -418,9 +419,11 @@ export default function OracoesScreen() {
     }
   };
 
+
   const fetchPrayersList = async (prayerId: string) => {
     setLoadingPrayersList(true);
     try {
+      // 1. Busca os IDs dos usuários que oraram (esta query é simples e não deve causar recursão)
       const { data: prayersData, error: prayersError } = await supabase
         .from('prayers')
         .select('user_id')
@@ -428,29 +431,26 @@ export default function OracoesScreen() {
         .order('created_at', { ascending: false });
 
       if (prayersError) throw prayersError;
-
       if (!prayersData || prayersData.length === 0) {
         setPrayersList([]);
         return;
       }
 
-      const userIds = prayersData.map(p => p.user_id);
+      // 2. Para cada ID de usuário, busca o perfil usando a NOVA FUNÇÃO SEGURA
+      // Isso evita a recursão, pois a função ignora as políticas RLS.
+      const profilesPromises = prayersData.map(async (item) => {
+        const { data: profileData, error: profileError } = await supabase
+          .rpc('get_profile_safe', { user_id: item.user_id });
 
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('perfis')
-        .select('id, nome_completo, apelido, avatar_url')
-        .in('id', userIds);
+        if (profileError) {
+          console.error('Erro ao buscar perfil via RPC:', profileError);
+          return null;
+        }
 
-      if (profilesError) throw profilesError;
+        // A função retorna um array, então pegamos o primeiro elemento
+        const profile = profileData?.[0];
 
-      const profilesMap = new Map();
-      (profilesData || []).forEach((profile: Profile) => {
-        profilesMap.set(profile.id, profile);
-      });
-
-      const formattedData = prayersData.map(item => {
-        const profile = profilesMap.get(item.user_id) as Profile | undefined;
-
+        // Determinar o nome a ser exibido (apelido ou primeiro nome)
         let displayName = 'Usuário';
         if (profile?.apelido) {
           displayName = profile.apelido;
@@ -464,6 +464,9 @@ export default function OracoesScreen() {
           author_avatar: profile?.avatar_url || null,
         };
       });
+
+      const results = await Promise.all(profilesPromises);
+      const formattedData = results.filter(item => item !== null);
 
       setPrayersList(formattedData);
     } catch (error) {
@@ -631,7 +634,12 @@ export default function OracoesScreen() {
     }
   };
 
+  // 🔇 Função handleSetReminder desabilitada temporariamente
   const handleSetReminder = async (prayer: PrayerRequest) => {
+    Alert.alert('Em breve', 'Notificações estarão disponíveis em uma atualização futura.');
+    return;
+
+    /* Código original comentado para referência futura
     if (!user) {
       Alert.alert('Login necessário', 'Faça login para ativar lembretes');
       return;
@@ -648,7 +656,6 @@ export default function OracoesScreen() {
       if (checkError) throw checkError;
 
       if (existing) {
-        // Se já tem lembrete, remover
         if (existing.notification_id) {
           await cancelPrayerReminder(existing.notification_id);
         }
@@ -671,17 +678,13 @@ export default function OracoesScreen() {
           )
         );
       } else {
-        // Calcular data do lembrete (30 minutos antes)
         const expiryDate = new Date(prayer.expires_at);
-        
-        // Agendar notificação
         const notificationId = await schedulePrayerReminder(
           prayer.id,
           prayer.title,
           expiryDate
         );
 
-        // Criar novo lembrete no banco
         const { error: insertError } = await supabase
           .from('prayer_reminders')
           .insert({
@@ -720,11 +723,11 @@ export default function OracoesScreen() {
           )
         );
       }
-
     } catch (error: any) {
       console.error('Erro ao processar lembrete:', error);
       Alert.alert('Erro', error.message || 'Não foi possível processar o lembrete');
     }
+    */
   };
 
   const getTimeRemaining = (expiresAt: string) => {
@@ -908,7 +911,7 @@ export default function OracoesScreen() {
     <ThemedView style={styles.container}>
       {loading && prayers.length === 0 ? (
         // Loading inicial com skeleton
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
