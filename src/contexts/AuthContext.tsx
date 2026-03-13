@@ -26,104 +26,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Ref para controlar tentativas de refresh
   const refreshAttempts = useRef(0);
   const maxRefreshAttempts = 3;
 
-  // Função para salvar push token no banco (DESABILITADA TEMPORARIAMENTE)
-  const savePushToken = async (userId: string) => {
-    // 🔇 Desabilitado para evitar erro no Expo Go
-    return;
-    
-    /* Código original comentado para referência futura
-    try {
-      const token = await registerForPushNotificationsAsync();
-      if (token) {
-        console.log('📱 Salvando push token:', token);
-        
-        const { data: existingToken } = await supabase
-          .from('user_push_tokens')
-          .select('id')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (existingToken) {
-          const { error } = await supabase
-            .from('user_push_tokens')
-            .update({
-              push_token: token,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId);
-
-          if (error) throw error;
-          console.log('✅ Push token atualizado');
-        } else {
-          const { error } = await supabase
-            .from('user_push_tokens')
-            .insert({
-              user_id: userId,
-              push_token: token,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-
-          if (error) throw error;
-          console.log('✅ Push token salvo');
-        }
-      }
-    } catch (error) {
-      console.error('❌ Erro ao salvar push token:', error);
-    }
-    */
+  // 🔥 Função para resetar tudo
+  const resetState = () => {
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    setUserRoles([]);
   };
 
-  // Função para limpar sessão local completamente
-  const clearSession = async () => {
+  // 🔥 Função melhorada para buscar perfil com retry
+  const fetchProfile = async (userId: string, retryCount = 0): Promise<Profile | null> => {
     try {
-      console.log('🧹 Limpando sessão local...');
+      console.log(`📥 Buscando perfil para usuário: ${userId} (tentativa ${retryCount + 1})`);
       
-      // Limpar apenas localmente sem chamar API
-      await supabase.auth.signOut({ scope: 'local' });
-      
-      // Limpar AsyncStorage manualmente
-      const keys = await AsyncStorage.getAllKeys();
-      const authKeys = keys.filter(key => 
-        key.includes('supabase') || 
-        key.includes('sb-') || 
-        key.includes('auth')
-      );
-      
-      if (authKeys.length > 0) {
-        await AsyncStorage.multiRemove(authKeys);
-      }
-      
-      // Resetar estados
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setUserRoles([]);
-      
-      console.log('✅ Sessão local limpa com sucesso');
-    } catch (error) {
-      console.error('❌ Erro ao limpar sessão:', error);
-    }
-  };
-
-  const fetchProfile = async (userId: string) => {
-    try {
       const { data, error } = await supabase
         .from('perfis')
         .select('id, nome_completo, apelido, celular, cep, logradouro, endereco, numero, complemento, bairro, cidade, uf, biometria_ativa, avatar_url')
         .eq('id', userId)
-        .single();
+        .maybeSingle(); // 🔥 Usar maybeSingle em vez de single para evitar erro se não existir
       
-      if (error) throw error;
-      setProfile(data);
-      DeviceEventEmitter.emit('profile.updated', data);
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+        
+        // Retry até 3 vezes
+        if (retryCount < 3) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+          return fetchProfile(userId, retryCount + 1);
+        }
+        return null;
+      }
+      
+      if (data) {
+        console.log('✅ Perfil encontrado:', data.apelido || data.nome_completo);
+        setProfile(data);
+        DeviceEventEmitter.emit('profile.updated', data);
+        return data;
+      } else {
+        console.log('⚠️ Perfil não encontrado para o usuário');
+        setProfile(null);
+        return null;
+      }
     } catch (error) {
-      console.error('Erro ao buscar perfil:', error);
-      setProfile(null);
+      console.error('Exceção ao buscar perfil:', error);
+      return null;
     }
   };
 
@@ -138,7 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const roles = data?.map(r => r.papel) || [];
       setUserRoles(roles);
     } catch (error) {
-      console.error('Erro ao buscar papéis do usuário:', error);
+      console.error('Erro ao buscar papéis:', error);
       setUserRoles([]);
     }
   };
@@ -149,152 +97,112 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshProfile = async () => {
     if (user) {
-      try {
-        await fetchProfile(user.id);
-      } catch (error) {
-        console.error('Erro ao atualizar perfil:', error);
-      }
+      await fetchProfile(user.id);
     }
   };
 
-  // Função para lidar com erros de refresh token
-  const handleAuthError = async (error: any) => {
-    if (!error) return false;
-    
-    const errorMessage = error?.message || '';
-    const errorCode = error?.code || '';
-    
-    if (errorMessage.includes('Invalid Refresh Token') || 
-        errorMessage.includes('Refresh Token Not Found') ||
-        errorCode === 'refresh_token_not_found' ||
-        error?.status === 401) {
+  const clearSession = async () => {
+    try {
+      console.log('🧹 Limpando sessão...');
+      await supabase.auth.signOut({ scope: 'local' });
       
-      console.log('⚠️ Erro de refresh token detectado:', errorMessage);
+      const keys = await AsyncStorage.getAllKeys();
+      const authKeys = keys.filter(key => 
+        key.includes('supabase') || key.includes('sb-') || key.includes('auth')
+      );
       
-      refreshAttempts.current += 1;
-      
-      if (refreshAttempts.current >= maxRefreshAttempts) {
-        console.log('🔄 Máximo de tentativas atingido. Limpando sessão...');
-        await clearSession();
-        refreshAttempts.current = 0;
-        return true;
+      if (authKeys.length > 0) {
+        await AsyncStorage.multiRemove(authKeys);
       }
       
-      try {
-        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError || !session) {
-          console.log('❌ Falha ao recuperar sessão:', refreshError);
-          await clearSession();
-          refreshAttempts.current = 0;
-          return true;
-        }
-        
-        console.log('✅ Sessão recuperada com sucesso');
-        refreshAttempts.current = 0;
-        return false;
-      } catch (e) {
-        console.log('❌ Exceção ao recuperar sessão:', e);
-        await clearSession();
-        refreshAttempts.current = 0;
-        return true;
-      }
+      resetState();
+      console.log('✅ Sessão limpa');
+    } catch (error) {
+      console.error('❌ Erro ao limpar sessão:', error);
+      resetState();
     }
-    
-    return false;
   };
 
-  // Adicionar listener global para erros do Supabase
-  useEffect(() => {
-    const subscription = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔐 Auth state changed:', event);
+  // 🔥 Função principal de inicialização
+  const initializeAuth = async () => {
+    try {
+      setLoading(true);
       
-      if (event === 'TOKEN_REFRESHED') {
-        console.log('✅ Token refreshed successfully');
-        refreshAttempts.current = 0;
-      }
+      // Buscar sessão atual
+      const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (event === 'USER_UPDATED') {
-        console.log('👤 User updated');
+      if (error) {
+        console.error('Erro ao buscar sessão:', error);
+        resetState();
+        setLoading(false);
+        return;
       }
-      
-      if (event === 'SIGNED_OUT') {
-        console.log('🚪 User signed out');
-        await clearSession();
-      }
-    });
 
-    return () => {
-      subscription.data.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+      if (session?.user) {
+        console.log('👤 Usuário encontrado na sessão:', session.user.email);
+        setUser(session.user);
+        setSession(session);
         
-        if (error) {
-          const wasCleared = await handleAuthError(error);
-          if (wasCleared && mounted) {
-            setLoading(false);
-            return;
-          }
-        }
+        // Buscar perfil e papéis em paralelo
+        const [profileData] = await Promise.all([
+          fetchProfile(session.user.id),
+          fetchUserRoles(session.user.id)
+        ]);
         
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            await Promise.all([
-              fetchProfile(session.user.id),
-              fetchUserRoles(session.user.id)
-            ]);
-            
-            // 🔇 Salvar push token desabilitado
-            // await savePushToken(session.user.id);
-          }
-          setLoading(false);
+        // Se não encontrou perfil, não é necessariamente um erro
+        // Pode ser um usuário novo
+        if (!profileData) {
+          console.log('⚠️ Usuário sem perfil cadastrado');
         }
-      } catch (error: any) {
-        console.error('Erro na inicialização da auth:', error);
-        await handleAuthError(error);
-        if (mounted) {
-          setLoading(false);
-        }
+      } else {
+        console.log('👤 Nenhuma sessão ativa');
+        resetState();
       }
-    };
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Erro na inicialização:', error);
+      resetState();
+      setLoading(false);
+    }
+  };
 
+  // Efeito principal
+  useEffect(() => {
     initializeAuth();
 
+    // Listener para mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('📡 Auth state change:', event);
+      console.log('📡 Auth event:', event);
       
-      if (mounted) {
-        setSession(session);
+      if (event === 'SIGNED_IN') {
+        console.log('✅ Login detectado');
         setUser(session?.user ?? null);
+        setSession(session);
         
         if (session?.user) {
           await Promise.all([
             fetchProfile(session.user.id),
             fetchUserRoles(session.user.id)
           ]);
-          
-          // 🔇 Salvar push token desabilitado
-          // await savePushToken(session.user.id);
-        } else {
-          setProfile(null);
-          setUserRoles([]);
         }
-        setLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 Logout detectado');
+        resetState();
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 Token renovado');
+        refreshAttempts.current = 0;
+      } else if (event === 'USER_UPDATED') {
+        console.log('👤 Usuário atualizado');
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        }
       }
+      
+      setLoading(false);
     });
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -302,16 +210,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.log('Erro no signOut normal, forçando limpeza local:', error);
-        await clearSession();
-      } else {
+        console.log('Erro no logout:', error);
         await clearSession();
       }
       
+      resetState();
       Alert.alert('Sucesso', 'Você saiu da sua conta.');
     } catch (error) {
       console.error('Erro ao fazer logout:', error);

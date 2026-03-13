@@ -1,26 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { ThemedText, ThemedView } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
-// 🔇 Imports de notificações desabilitados temporariamente
-// import { cancelPrayerReminder, schedulePrayerReminder } from '../services/notificationService';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
 import { createStyles } from './styles/OracoesScreen.styles';
@@ -41,6 +38,8 @@ type PrayerRequest = {
   user_prayed: boolean;
   user_reminded: boolean;
   notification_id?: string | null;
+  reminder_type?: 'minutos' | 'horas' | 'dias';
+  reminder_value?: number;
   status?: string;
 };
 
@@ -79,14 +78,41 @@ const availableTags = [
   'Outro',
 ];
 
-// Componente de Loading Skeleton
+const reminderOptions = [
+  { label: 'Minutos', value: 'minutos' },
+  { label: 'Horas', value: 'horas' },
+  { label: 'Dias', value: 'dias' },
+];
+
+// Componente de Loading Skeleton com efeito pulsante
 const PrayerLoadingSkeleton = () => {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.sequence([
+      Animated.timing(pulseAnim, {
+        toValue: 0.5,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    Animated.loop(pulse).start();
+
+    return () => {
+      pulseAnim.stopAnimation();
+    };
+  }, []);
 
   return (
-    <View style={styles.loadingSkeleton}>
-      {/* Header Skeleton */}
+    <Animated.View style={[styles.loadingSkeleton, { opacity: pulseAnim }]}>
       <View style={styles.skeletonHeader}>
         <View style={styles.skeletonAvatar} />
         <View style={styles.skeletonHeaderText}>
@@ -95,30 +121,26 @@ const PrayerLoadingSkeleton = () => {
         </View>
       </View>
 
-      {/* Content Skeleton */}
       <View style={styles.skeletonContent}>
         <View style={[styles.skeletonLine, { width: '80%', height: 20 }]} />
         <View style={[styles.skeletonLine, { width: '100%', height: 16 }]} />
         <View style={[styles.skeletonLine, { width: '90%', height: 16 }]} />
 
-        {/* Tags Skeleton */}
         <View style={styles.skeletonTags}>
           {[1, 2, 3].map(i => (
             <View key={i} style={styles.skeletonTag} />
           ))}
         </View>
 
-        {/* Expiry Skeleton */}
         <View style={styles.skeletonExpiry} />
       </View>
 
-      {/* Interactions Skeleton */}
       <View style={styles.skeletonInteractions}>
         {[1, 2, 3].map(i => (
           <View key={i} style={styles.skeletonInteractionButton} />
         ))}
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -158,6 +180,19 @@ export default function OracoesScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Estados para menu de opções
+  const [activeMenuPrayerId, setActiveMenuPrayerId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+
+  // Estados para configuração de lembrete
+  const [showReminderConfig, setShowReminderConfig] = useState(false);
+  const [reminderPrayer, setReminderPrayer] = useState<PrayerRequest | null>(null);
+  const [reminderType, setReminderType] = useState<'minutos' | 'horas' | 'dias'>('horas');
+  const [reminderValue, setReminderValue] = useState('1');
+
+  // 🔥 Controle para evitar duplicação de cliques
+  const processingPrayer = useRef<Set<string>>(new Set());
 
   // Buscar pedidos de oração
   const fetchPrayers = async () => {
@@ -232,16 +267,19 @@ export default function OracoesScreen() {
       if (user) {
         const { data: remindersData } = await supabase
           .from('prayer_reminders')
-          .select('prayer_request_id, notification_id')
+          .select('prayer_request_id, notification_id, reminder_type, reminder_value')
           .eq('user_id', user.id);
 
         if (remindersData) {
           const remindedMap = new Map(
-            remindersData.map(r => [r.prayer_request_id, r.notification_id])
+            remindersData.map(r => [r.prayer_request_id, r])
           );
           processedPrayers.forEach(p => {
-            p.user_reminded = remindedMap.has(p.id);
-            p.notification_id = remindedMap.get(p.id) || null;
+            const reminder = remindedMap.get(p.id);
+            p.user_reminded = !!reminder;
+            p.notification_id = reminder?.notification_id || null;
+            p.reminder_type = reminder?.reminder_type;
+            p.reminder_value = reminder?.reminder_value;
           });
         }
       }
@@ -272,9 +310,111 @@ export default function OracoesScreen() {
     }
   };
 
+  // ============================================
+  // LISTENER ÚNICO PARA ATUALIZAÇÕES (ORAÇÕES E COMENTÁRIOS)
+  // ============================================
   useEffect(() => {
-    fetchPrayers();
+    if (!user) return;
 
+    const channel = supabase
+      .channel('prayers-all-live')
+      // Escutar orações
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'prayers'
+        },
+        (payload) => {
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          const prayerId = newRecord?.prayer_request_id || oldRecord?.prayer_request_id;
+
+          if (!prayerId) return;
+
+          // 🔥 VERIFICAÇÃO: Se a mudança foi feita pelo usuário atual, ignorar
+          const userId = payload.eventType === 'INSERT' ? newRecord?.user_id : oldRecord?.user_id;
+          if (userId === user?.id) {
+            return;
+          }
+
+          setPrayers(current => {
+            const updated = current.map(prayer => {
+              if (prayer.id === prayerId) {
+                const isInsert = payload.eventType === 'INSERT';
+                const newCount = prayer.prayers_count + (isInsert ? 1 : -1);
+                return {
+                  ...prayer,
+                  prayers_count: Math.max(0, newCount),
+                  // Não alterar user_prayed aqui, pois é de outro usuário
+                };
+              }
+              return prayer;
+            });
+            return [...updated];
+          });
+        }
+      )
+      // Escutar comentários
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'prayer_comments'
+        },
+        (payload) => {
+          const newRecord = payload.new as any;
+          const prayerId = newRecord?.prayer_request_id;
+
+          if (!prayerId) return;
+
+          // 1. Atualizar contador do card
+          setPrayers(current => {
+            const updated = current.map(prayer => {
+              if (prayer.id === prayerId) {
+                return {
+                  ...prayer,
+                  comments_count: prayer.comments_count + 1
+                };
+              }
+              return prayer;
+            });
+            return [...updated];
+          });
+
+          // 2. Se o modal estiver aberto para este pedido, adicionar à lista
+          if (selectedPrayerId === prayerId) {
+            supabase
+              .rpc('get_profile_safe', { user_id: newRecord.user_id })
+              .then(({ data: profileData }) => {
+                const profile = profileData?.[0];
+                const newComment: Comment = {
+                  id: newRecord.id,
+                  content: newRecord.content,
+                  created_at: newRecord.created_at,
+                  user_id: newRecord.user_id,
+                  author_name: profile?.apelido || profile?.nome_completo?.split(' ')[0] || 'Usuário',
+                  author_avatar: profile?.avatar_url || null,
+                };
+
+                setComments(prev => [...prev, newComment]);
+              });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedPrayerId]);
+
+  // ============================================
+  // LISTENER PARA MUDANÇAS NA TABELA PRAYER_REQUESTS
+  // ============================================
+  useEffect(() => {
     const subscription = supabase
       .channel('prayer_requests')
       .on('postgres_changes',
@@ -288,6 +428,67 @@ export default function OracoesScreen() {
     return () => {
       subscription.unsubscribe();
     };
+  }, [activeFilter, user?.id]);
+
+  // ============================================
+  // LISTENER PARA NOVOS PEDIDOS DE ORAÇÃO (INSERT)
+  // ============================================
+  useEffect(() => {
+    const channel = supabase
+      .channel('prayer-requests-live')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'prayer_requests'
+        },
+        async (payload) => {
+          const newPrayer = payload.new as PrayerRequest;
+
+          const now = new Date();
+          const expiresAt = new Date(newPrayer.expires_at);
+
+          if (expiresAt <= now) return;
+
+          if (prayers.some(p => p.id === newPrayer.id)) return;
+
+          if (activeFilter === 'meus' && newPrayer.user_id !== user?.id) return;
+
+          const [prayersData, commentsData] = await Promise.all([
+            supabase.from('prayers').select('user_id').eq('prayer_request_id', newPrayer.id),
+            supabase.from('prayer_comments').select('id').eq('prayer_request_id', newPrayer.id)
+          ]);
+
+          const processedPrayer: PrayerRequest = {
+            ...newPrayer,
+            prayers_count: prayersData.data?.length || 0,
+            comments_count: commentsData.data?.length || 0,
+            user_prayed: prayersData.data?.some(p => p.user_id === user?.id) || false,
+            user_reminded: false,
+          };
+
+          setPrayers(prev => [processedPrayer, ...prev]);
+
+          setStats(prev => ({
+            ...prev,
+            total: prev.total + 1,
+            active: prev.active + 1
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeFilter, user?.id]);
+
+  // ============================================
+  // INICIALIZAÇÃO
+  // ============================================
+  useEffect(() => {
+    fetchPrayers();
   }, [activeFilter, user?.id]);
 
   const onRefresh = () => {
@@ -306,6 +507,14 @@ export default function OracoesScreen() {
     }
     if (selectedTags.length === 0) {
       Alert.alert('Validação', 'Selecione pelo menos uma tag');
+      return;
+    }
+
+    const now = new Date();
+    const expiryDate = new Date(newExpiryDate);
+
+    if (expiryDate <= now) {
+      Alert.alert('Validação', 'A data de expiração deve ser futura');
       return;
     }
 
@@ -333,7 +542,7 @@ export default function OracoesScreen() {
         author_avatar: profileData?.avatar_url || null,
         title: newTitle.trim(),
         description: newDescription.trim(),
-        expires_at: newExpiryDate.toISOString(),
+        expires_at: expiryDate.toISOString(),
         tags: selectedTags,
         created_at: new Date().toISOString(),
       });
@@ -347,7 +556,6 @@ export default function OracoesScreen() {
       setShowCreateModal(false);
 
       Alert.alert('Sucesso', 'Seu pedido de oração foi criado!');
-      fetchPrayers();
 
     } catch (error: any) {
       console.error('Erro ao criar pedido:', error);
@@ -390,40 +598,136 @@ export default function OracoesScreen() {
     );
   };
 
-  const showOptionsMenu = (prayer: PrayerRequest) => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancelar', 'Editar', 'Excluir'],
-          destructiveButtonIndex: 2,
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
-            handleEditPrayer(prayer);
-          } else if (buttonIndex === 2) {
-            handleDeletePrayer(prayer.id);
-          }
-        }
+  const showOptionsMenu = (prayerId: string, event: any) => {
+    setActiveMenuPrayerId(null);
+
+    setTimeout(() => {
+      if (event && event.currentTarget) {
+        event.currentTarget.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+          setMenuPosition({ x: pageX - 180, y: pageY + height });
+          setActiveMenuPrayerId(prayerId);
+        });
+      } else {
+        setMenuPosition({ x: 0, y: 0 });
+        setActiveMenuPrayerId(prayerId);
+      }
+    }, 10);
+  };
+
+  const closeMenu = () => {
+    setActiveMenuPrayerId(null);
+  };
+
+  const handleReminderOption = (prayer: PrayerRequest) => {
+    closeMenu();
+    setReminderPrayer(prayer);
+    setReminderType(prayer.reminder_type || 'horas');
+    setReminderValue(prayer.reminder_value?.toString() || '1');
+    setShowReminderConfig(true);
+  };
+
+  const saveReminder = async () => {
+    if (!reminderPrayer || !user) return;
+
+    const value = parseInt(reminderValue);
+    if (isNaN(value) || value <= 0) {
+      Alert.alert('Erro', 'Digite um valor válido');
+      return;
+    }
+
+    try {
+      const expiryDate = new Date(reminderPrayer.expires_at);
+      const reminderDate = new Date(expiryDate);
+
+      if (reminderType === 'minutos') {
+        reminderDate.setMinutes(reminderDate.getMinutes() - value);
+      } else if (reminderType === 'horas') {
+        reminderDate.setHours(reminderDate.getHours() - value);
+      } else if (reminderType === 'dias') {
+        reminderDate.setDate(reminderDate.getDate() - value);
+      }
+
+      const { data: existing } = await supabase
+        .from('prayer_reminders')
+        .select('*')
+        .eq('prayer_request_id', reminderPrayer.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('prayer_reminders')
+          .update({
+            reminder_type: reminderType,
+            reminder_value: value,
+            reminder_date: reminderDate.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('prayer_reminders')
+          .insert({
+            prayer_request_id: reminderPrayer.id,
+            user_id: user.id,
+            reminder_type: reminderType,
+            reminder_value: value,
+            reminder_date: reminderDate.toISOString(),
+            created_at: new Date().toISOString(),
+          });
+
+        if (error) throw error;
+      }
+
+      setPrayers(prev =>
+        prev.map(p =>
+          p.id === reminderPrayer.id
+            ? { ...p, user_reminded: true, reminder_type: reminderType, reminder_value: value }
+            : p
+        )
       );
-    } else {
-      Alert.alert(
-        'Opções',
-        'Escolha uma ação',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Editar', onPress: () => handleEditPrayer(prayer) },
-          { text: 'Excluir', onPress: () => handleDeletePrayer(prayer.id), style: 'destructive' },
-        ]
-      );
+
+      Alert.alert('Sucesso', 'Lembrete configurado com sucesso!');
+      setShowReminderConfig(false);
+      setReminderPrayer(null);
+    } catch (error: any) {
+      console.error('Erro ao salvar lembrete:', error);
+      Alert.alert('Erro', error.message);
     }
   };
 
+  const removeReminder = async (prayer: PrayerRequest) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('prayer_reminders')
+        .delete()
+        .eq('prayer_request_id', prayer.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setPrayers(prev =>
+        prev.map(p =>
+          p.id === prayer.id
+            ? { ...p, user_reminded: false, reminder_type: undefined, reminder_value: undefined }
+            : p
+        )
+      );
+
+      Alert.alert('Sucesso', 'Lembrete removido');
+    } catch (error: any) {
+      console.error('Erro ao remover lembrete:', error);
+      Alert.alert('Erro', error.message);
+    }
+  };
 
   const fetchPrayersList = async (prayerId: string) => {
     setLoadingPrayersList(true);
     try {
-      // 1. Busca os IDs dos usuários que oraram (esta query é simples e não deve causar recursão)
       const { data: prayersData, error: prayersError } = await supabase
         .from('prayers')
         .select('user_id')
@@ -436,8 +740,6 @@ export default function OracoesScreen() {
         return;
       }
 
-      // 2. Para cada ID de usuário, busca o perfil usando a NOVA FUNÇÃO SEGURA
-      // Isso evita a recursão, pois a função ignora as políticas RLS.
       const profilesPromises = prayersData.map(async (item) => {
         const { data: profileData, error: profileError } = await supabase
           .rpc('get_profile_safe', { user_id: item.user_id });
@@ -447,10 +749,8 @@ export default function OracoesScreen() {
           return null;
         }
 
-        // A função retorna um array, então pegamos o primeiro elemento
         const profile = profileData?.[0];
 
-        // Determinar o nome a ser exibido (apelido ou primeiro nome)
         let displayName = 'Usuário';
         if (profile?.apelido) {
           displayName = profile.apelido;
@@ -493,34 +793,25 @@ export default function OracoesScreen() {
         return;
       }
 
-      const userIds = commentsData.map(c => c.user_id);
+      const commentsWithProfiles = await Promise.all(
+        commentsData.map(async (comment) => {
+          const { data: profileData } = await supabase
+            .rpc('get_profile_safe', { user_id: comment.user_id });
 
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('perfis')
-        .select('id, nome_completo, apelido, avatar_url')
-        .in('id', userIds);
+          const profile = profileData?.[0];
 
-      if (profilesError) throw profilesError;
+          return {
+            id: comment.id,
+            content: comment.content,
+            created_at: comment.created_at,
+            user_id: comment.user_id,
+            author_name: profile?.apelido || profile?.nome_completo?.split(' ')[0] || 'Usuário',
+            author_avatar: profile?.avatar_url || null,
+          };
+        })
+      );
 
-      const profilesMap = new Map();
-      (profilesData || []).forEach((profile: any) => {
-        profilesMap.set(profile.id, profile);
-      });
-
-      const formattedComments: Comment[] = commentsData.map(item => {
-        const profile = profilesMap.get(item.user_id);
-
-        return {
-          id: item.id,
-          content: item.content,
-          created_at: item.created_at,
-          user_id: item.user_id,
-          author_name: profile?.apelido || profile?.nome_completo?.split(' ')[0] || 'Usuário',
-          author_avatar: profile?.avatar_url || null,
-        };
-      });
-
-      setComments(formattedComments);
+      setComments(commentsWithProfiles);
     } catch (error) {
       console.error('Erro ao buscar comentários:', error);
       Alert.alert('Erro', 'Não foi possível carregar os comentários');
@@ -560,15 +851,7 @@ export default function OracoesScreen() {
       if (error) throw error;
 
       setNewComment('');
-      fetchComments(selectedPrayerId);
 
-      setPrayers(prev =>
-        prev.map(p =>
-          p.id === selectedPrayerId
-            ? { ...p, comments_count: p.comments_count + 1 }
-            : p
-        )
-      );
     } catch (error: any) {
       console.error('Erro ao adicionar comentário:', error);
       Alert.alert('Erro', error.message);
@@ -577,11 +860,36 @@ export default function OracoesScreen() {
     }
   };
 
+  // 🔥 FUNÇÃO CORRIGIDA: handlePray com atualização otimista e verificação
   const handlePray = async (prayerId: string) => {
     if (!user) {
       Alert.alert('Login necessário', 'Faça login para orar por este pedido');
       return;
     }
+
+    // Verificar se já está processando este pedido
+    if (processingPrayer.current.has(prayerId)) {
+      return;
+    }
+
+    processingPrayer.current.add(prayerId);
+
+    // 🔥 ATUALIZAÇÃO OTIMISTA: atualizar a UI imediatamente
+    const previousPrayers = [...prayers];
+
+    setPrayers(prev =>
+      prev.map(prayer => {
+        if (prayer.id === prayerId) {
+          const wasPrayed = prayer.user_prayed;
+          return {
+            ...prayer,
+            prayers_count: wasPrayed ? prayer.prayers_count - 1 : prayer.prayers_count + 1,
+            user_prayed: !wasPrayed
+          };
+        }
+        return prayer;
+      })
+    );
 
     try {
       const { data: existing, error: checkError } = await supabase
@@ -600,14 +908,6 @@ export default function OracoesScreen() {
           .eq('id', existing.id);
 
         if (deleteError) throw deleteError;
-
-        setPrayers(prev =>
-          prev.map(p =>
-            p.id === prayerId
-              ? { ...p, prayers_count: p.prayers_count - 1, user_prayed: false }
-              : p
-          )
-        );
       } else {
         const { error: insertError } = await supabase
           .from('prayers')
@@ -618,116 +918,25 @@ export default function OracoesScreen() {
           });
 
         if (insertError) throw insertError;
-
-        setPrayers(prev =>
-          prev.map(p =>
-            p.id === prayerId
-              ? { ...p, prayers_count: p.prayers_count + 1, user_prayed: true }
-              : p
-          )
-        );
       }
 
     } catch (error: any) {
       console.error('Erro ao processar oração:', error);
+
+      // 🔥 Reverter a atualização otimista em caso de erro
+      setPrayers(previousPrayers);
+
       Alert.alert('Erro', error.message || 'Não foi possível processar sua oração');
+    } finally {
+      // Remover do conjunto após um pequeno delay
+      setTimeout(() => {
+        processingPrayer.current.delete(prayerId);
+      }, 500);
     }
   };
 
-  // 🔇 Função handleSetReminder desabilitada temporariamente
   const handleSetReminder = async (prayer: PrayerRequest) => {
-    Alert.alert('Em breve', 'Notificações estarão disponíveis em uma atualização futura.');
-    return;
-
-    /* Código original comentado para referência futura
-    if (!user) {
-      Alert.alert('Login necessário', 'Faça login para ativar lembretes');
-      return;
-    }
-
-    try {
-      const { data: existing, error: checkError } = await supabase
-        .from('prayer_reminders')
-        .select('*')
-        .eq('prayer_request_id', prayer.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (existing) {
-        if (existing.notification_id) {
-          await cancelPrayerReminder(existing.notification_id);
-        }
-
-        const { error: deleteError } = await supabase
-          .from('prayer_reminders')
-          .delete()
-          .eq('prayer_request_id', prayer.id)
-          .eq('user_id', user.id);
-
-        if (deleteError) throw deleteError;
-
-        Alert.alert('Lembrete removido', 'Você não receberá notificações para este pedido');
-
-        setPrayers(prev =>
-          prev.map(p =>
-            p.id === prayer.id
-              ? { ...p, user_reminded: false, notification_id: null }
-              : p
-          )
-        );
-      } else {
-        const expiryDate = new Date(prayer.expires_at);
-        const notificationId = await schedulePrayerReminder(
-          prayer.id,
-          prayer.title,
-          expiryDate
-        );
-
-        const { error: insertError } = await supabase
-          .from('prayer_reminders')
-          .insert({
-            prayer_request_id: prayer.id,
-            user_id: user.id,
-            reminder_date: prayer.expires_at,
-            notification_id: notificationId,
-            created_at: new Date().toISOString(),
-          });
-
-        if (insertError) {
-          if (insertError.code === '23505') {
-            setPrayers(prev =>
-              prev.map(p =>
-                p.id === prayer.id
-                  ? { ...p, user_reminded: true }
-                  : p
-              )
-            );
-            Alert.alert('Lembrete já ativo', 'Você já possui um lembrete para este pedido.');
-            return;
-          }
-          throw insertError;
-        }
-
-        Alert.alert(
-          'Lembrete ativado',
-          'Você será notificado 30 minutos antes do horário limite deste pedido.'
-        );
-
-        setPrayers(prev =>
-          prev.map(p =>
-            p.id === prayer.id
-              ? { ...p, user_reminded: true, notification_id: notificationId }
-              : p
-          )
-        );
-      }
-    } catch (error: any) {
-      console.error('Erro ao processar lembrete:', error);
-      Alert.alert('Erro', error.message || 'Não foi possível processar o lembrete');
-    }
-    */
+    handleReminderOption(prayer);
   };
 
   const getTimeRemaining = (expiresAt: string) => {
@@ -778,12 +987,6 @@ export default function OracoesScreen() {
 
     return (
       <View style={styles.prayerCard}>
-        {isMyPrayer && (
-          <View style={styles.myPrayerBadge}>
-            <ThemedText style={styles.myPrayerBadgeText}>Meu pedido</ThemedText>
-          </View>
-        )}
-
         <View style={styles.prayerHeader}>
           <View style={styles.prayerAvatar}>
             {item.author_avatar ? (
@@ -801,14 +1004,15 @@ export default function OracoesScreen() {
             </ThemedText>
           </View>
 
-          {isMyPrayer && (
-            <TouchableOpacity
-              style={styles.prayerMenuButton}
-              onPress={() => showOptionsMenu(item)}
-            >
-              <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.text} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.prayerMenuButton}
+            onPress={(event) => {
+              event.persist();
+              showOptionsMenu(item.id, event);
+            }}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.text} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.prayerContent}>
@@ -859,7 +1063,7 @@ export default function OracoesScreen() {
                 item.user_prayed && styles.interactionTextActive,
               ]}
             >
-              {item.prayers_count} {item.prayers_count === 1 ? 'Oração' : 'Orações'}
+              {item.prayers_count}
             </ThemedText>
           </TouchableOpacity>
 
@@ -874,28 +1078,107 @@ export default function OracoesScreen() {
           >
             <Ionicons name="chatbubble-outline" size={20} color={theme.colors.muted} />
             <ThemedText style={styles.interactionText}>
-              {item.comments_count} {item.comments_count === 1 ? 'Comentário' : 'Comentários'}
+              {item.comments_count}
             </ThemedText>
           </TouchableOpacity>
-
-          <Pressable
-            style={styles.interactionButton}
-            onPress={() => handleSetReminder(item)}
-          >
-            <View>
-              <Ionicons
-                name={item.user_reminded ? 'notifications' : 'notifications-outline'}
-                size={20}
-                color={item.user_reminded ? theme.colors.primary : theme.colors.muted}
-              />
-              {item.user_reminded && (
-                <View style={styles.reminderBadge}>
-                  <ThemedText style={styles.reminderBadgeText}>✓</ThemedText>
-                </View>
-              )}
-            </View>
-          </Pressable>
         </View>
+
+        {activeMenuPrayerId === item.id && (
+          <View style={[styles.optionsMenu, {
+            position: 'absolute',
+            top: menuPosition.y,
+            right: 16,
+            zIndex: 1000,
+          }]}>
+            {isMyPrayer ? (
+              <>
+                <TouchableOpacity
+                  style={styles.optionsMenuItem}
+                  onPress={() => {
+                    closeMenu();
+                    handleReminderOption(item);
+                  }}
+                >
+                  <Ionicons name="notifications-outline" size={18} color={theme.colors.text} />
+                  <ThemedText style={styles.optionsMenuText}>
+                    {item.user_reminded ? 'Editar lembrete' : 'Configurar lembrete'}
+                  </ThemedText>
+                </TouchableOpacity>
+
+                {item.user_reminded && (
+                  <TouchableOpacity
+                    style={styles.optionsMenuItem}
+                    onPress={() => {
+                      closeMenu();
+                      removeReminder(item);
+                    }}
+                  >
+                    <Ionicons name="notifications-off-outline" size={18} color="#EF4444" />
+                    <ThemedText style={[styles.optionsMenuText, { color: '#EF4444' }]}>
+                      Remover lembrete
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+
+                <View style={styles.optionsMenuDivider} />
+
+                <TouchableOpacity
+                  style={styles.optionsMenuItem}
+                  onPress={() => {
+                    closeMenu();
+                    handleEditPrayer(item);
+                  }}
+                >
+                  <Ionicons name="create-outline" size={18} color={theme.colors.text} />
+                  <ThemedText style={styles.optionsMenuText}>Editar</ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.optionsMenuItem}
+                  onPress={() => {
+                    closeMenu();
+                    handleDeletePrayer(item.id);
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  <ThemedText style={[styles.optionsMenuText, { color: '#EF4444' }]}>
+                    Excluir
+                  </ThemedText>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.optionsMenuItem}
+                  onPress={() => {
+                    closeMenu();
+                    handleReminderOption(item);
+                  }}
+                >
+                  <Ionicons name="notifications-outline" size={18} color={theme.colors.text} />
+                  <ThemedText style={styles.optionsMenuText}>
+                    {item.user_reminded ? 'Editar lembrete' : 'Configurar lembrete'}
+                  </ThemedText>
+                </TouchableOpacity>
+
+                {item.user_reminded && (
+                  <TouchableOpacity
+                    style={styles.optionsMenuItem}
+                    onPress={() => {
+                      closeMenu();
+                      removeReminder(item);
+                    }}
+                  >
+                    <Ionicons name="notifications-off-outline" size={18} color="#EF4444" />
+                    <ThemedText style={[styles.optionsMenuText, { color: '#EF4444' }]}>
+                      Remover lembrete
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -910,18 +1193,15 @@ export default function OracoesScreen() {
   return (
     <ThemedView style={styles.container}>
       {loading && prayers.length === 0 ? (
-        // Loading inicial com skeleton
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Skeleton */}
           <View style={styles.header}>
             <View style={[styles.skeletonLine, { width: 150, height: 36 }]} />
             <View style={[styles.skeletonLine, { width: '100%', height: 20, marginTop: 8 }]} />
           </View>
 
-          {/* Stats Skeleton */}
           <View style={styles.statsContainer}>
             {[1, 2, 3].map(i => (
               <View key={i} style={styles.statCard}>
@@ -931,7 +1211,6 @@ export default function OracoesScreen() {
             ))}
           </View>
 
-          {/* Filters Skeleton */}
           <View style={styles.filtersContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {[1, 2, 3, 4, 5].map(i => (
@@ -940,132 +1219,214 @@ export default function OracoesScreen() {
             </ScrollView>
           </View>
 
-          {/* Prayer Cards Skeleton */}
           {[1, 2, 3].map(i => (
             <PrayerLoadingSkeleton key={i} />
           ))}
         </ScrollView>
       ) : (
-        <FlatList
-          data={prayers}
-          renderItem={renderPrayerCard}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[theme.colors.primary]}
-              tintColor={theme.colors.primary}
-            />
-          }
-          ListHeaderComponent={
-            <>
-              <View style={styles.header}>
-                <ThemedText style={styles.headerTitle}>Orações</ThemedText>
-                <ThemedText style={styles.headerSubtitle}>
-                  Compartilhe seus pedidos e ore por outros irmãos
-                </ThemedText>
-              </View>
+        <>
+          <FlatList
+            data={prayers}
+            renderItem={renderPrayerCard}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[theme.colors.primary]}
+                tintColor={theme.colors.primary}
+              />
+            }
+            ListHeaderComponent={
+              <>
+                <View style={styles.header}>
+                  <ThemedText style={styles.headerTitle}>Orações</ThemedText>
+                  <ThemedText style={styles.headerSubtitle}>
+                    Compartilhe seus pedidos e ore por outros irmãos
+                  </ThemedText>
+                </View>
 
-              <View style={styles.statsContainer}>
-                <View style={styles.statCard}>
-                  <ThemedText style={styles.statNumber}>{stats.total}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Total</ThemedText>
+                <View style={styles.statsContainer}>
+                  <View style={styles.statCard}>
+                    <ThemedText style={styles.statNumber}>{stats.total}</ThemedText>
+                    <ThemedText style={styles.statLabel}>Total</ThemedText>
+                  </View>
+                  <View style={styles.statCard}>
+                    <ThemedText style={styles.statNumber}>{stats.active}</ThemedText>
+                    <ThemedText style={styles.statLabel}>Ativos</ThemedText>
+                  </View>
+                  <View style={styles.statCard}>
+                    <ThemedText style={styles.statNumber}>{stats.answered}</ThemedText>
+                    <ThemedText style={styles.statLabel}>Respondidos</ThemedText>
+                  </View>
                 </View>
-                <View style={styles.statCard}>
-                  <ThemedText style={styles.statNumber}>{stats.active}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Ativos</ThemedText>
-                </View>
-                <View style={styles.statCard}>
-                  <ThemedText style={styles.statNumber}>{stats.answered}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Respondidos</ThemedText>
-                </View>
-              </View>
 
-              <View style={styles.filtersContainer}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.filtersScroll}
-                >
-                  <Pressable
-                    style={[
-                      styles.filterChip,
-                      activeFilter === null && styles.filterChipActive,
-                    ]}
-                    onPress={() => setActiveFilter(null)}
+                <View style={styles.filtersContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.filtersScroll}
                   >
-                    <ThemedText
-                      style={[
-                        styles.filterChipText,
-                        activeFilter === null && styles.filterChipTextActive,
-                      ]}
-                    >
-                      Todos
-                    </ThemedText>
-                  </Pressable>
-                  {filters.map(filter => (
                     <Pressable
-                      key={filter.key}
                       style={[
                         styles.filterChip,
-                        activeFilter === filter.key && styles.filterChipActive,
+                        activeFilter === null && styles.filterChipActive,
                       ]}
-                      onPress={() => setActiveFilter(filter.key)}
+                      onPress={() => setActiveFilter(null)}
                     >
                       <ThemedText
                         style={[
                           styles.filterChipText,
-                          activeFilter === filter.key && styles.filterChipTextActive,
+                          activeFilter === null && styles.filterChipTextActive,
                         ]}
                       >
-                        {filter.label}
+                        Todos
                       </ThemedText>
                     </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            </>
-          }
-          ListEmptyComponent={
-            !loading ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="heart-outline" size={64} color={theme.colors.muted} />
-                <ThemedText style={styles.emptyStateText}>
-                  Nenhum pedido de oração encontrado
-                </ThemedText>
-                <Pressable
-                  style={[styles.emptyStateButton, { backgroundColor: theme.colors.primary }]}
-                  onPress={() => setShowCreateModal(true)}
-                >
-                  <ThemedText style={styles.emptyStateButtonText}>
-                    Criar primeiro pedido
+                    {filters.map(filter => (
+                      <Pressable
+                        key={filter.key}
+                        style={[
+                          styles.filterChip,
+                          activeFilter === filter.key && styles.filterChipActive,
+                        ]}
+                        onPress={() => setActiveFilter(filter.key)}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.filterChipText,
+                            activeFilter === filter.key && styles.filterChipTextActive,
+                          ]}
+                        >
+                          {filter.label}
+                        </ThemedText>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              </>
+            }
+            ListEmptyComponent={
+              !loading ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="heart-outline" size={64} color={theme.colors.muted} />
+                  <ThemedText style={styles.emptyStateText}>
+                    Nenhum pedido de oração encontrado
                   </ThemedText>
-                </Pressable>
-              </View>
-            ) : null
-          }
-        />
+                  <Pressable
+                    style={[styles.emptyStateButton, { backgroundColor: theme.colors.primary }]}
+                    onPress={() => setShowCreateModal(true)}
+                  >
+                    <ThemedText style={styles.emptyStateButtonText}>
+                      Criar primeiro pedido
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              ) : null
+            }
+          />
+
+          <Pressable
+            style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+            onPress={() => setShowCreateModal(true)}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+          </Pressable>
+        </>
       )}
 
-      <Pressable
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => setShowCreateModal(true)}
+      {/* Modal de configuração de lembrete */}
+      <Modal
+        visible={showReminderConfig}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReminderConfig(false)}
       >
-        <Ionicons name="add" size={24} color="#fff" />
-      </Pressable>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowReminderConfig(false)}>
+          <View style={styles.reminderConfigModal} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Configurar Lembrete</ThemedText>
+              <Pressable onPress={() => setShowReminderConfig(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </Pressable>
+            </View>
 
-      {/* Modais - mantidos iguais */}
+            <View style={styles.reminderConfigContent}>
+              <ThemedText style={styles.reminderConfigText}>
+                Receber notificação:
+              </ThemedText>
+
+              <View style={styles.reminderInputRow}>
+                <TextInput
+                  style={styles.reminderInput}
+                  value={reminderValue}
+                  onChangeText={setReminderValue}
+                  keyboardType="numeric"
+                  placeholder="1"
+                  placeholderTextColor={theme.colors.muted}
+                />
+                <View style={styles.reminderTypeButtons}>
+                  {reminderOptions.map(option => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.reminderTypeButton,
+                        reminderType === option.value && styles.reminderTypeButtonActive,
+                      ]}
+                      onPress={() => setReminderType(option.value as any)}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.reminderTypeButtonText,
+                          reminderType === option.value && styles.reminderTypeButtonTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <ThemedText style={styles.reminderConfigNote}>
+                Antes do horário limite
+              </ThemedText>
+
+              <View style={styles.reminderConfigActions}>
+                <TouchableOpacity
+                  style={[styles.reminderConfigButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={saveReminder}
+                >
+                  <ThemedText style={styles.reminderConfigButtonText}>Salvar</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.reminderConfigButton, styles.reminderConfigButtonCancel]}
+                  onPress={() => setShowReminderConfig(false)}
+                >
+                  <ThemedText style={styles.reminderConfigButtonCancelText}>Cancelar</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Overlay para fechar o menu quando clicar fora */}
+      {activeMenuPrayerId && (
+        <Pressable style={styles.menuOverlay} onPress={closeMenu} />
+      )}
+
+      {/* Modal de criação */}
       <Modal
         visible={showCreateModal}
         transparent
         animationType="slide"
         onRequestClose={() => setShowCreateModal(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
+        <Pressable style={styles.modalContainer} onPress={() => setShowCreateModal(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <ThemedText style={styles.modalTitle}>Novo Pedido</ThemedText>
               <Pressable
@@ -1179,8 +1540,8 @@ export default function OracoesScreen() {
                 </ThemedText>
               </Pressable>
             </ScrollView>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* DatePicker */}
@@ -1192,7 +1553,13 @@ export default function OracoesScreen() {
           onChange={(event, selectedDate) => {
             setShowDatePicker(false);
             if (selectedDate) {
-              setNewExpiryDate(selectedDate);
+              const selected = new Date(selectedDate);
+              const now = new Date();
+              if (selected < now) {
+                Alert.alert('Aviso', 'A data de expiração deve ser futura');
+                return;
+              }
+              setNewExpiryDate(selected);
             }
           }}
         />
@@ -1209,21 +1576,27 @@ export default function OracoesScreen() {
             if (selectedTime) {
               const newDate = new Date(newExpiryDate);
               newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+
+              const now = new Date();
+              if (newDate <= now) {
+                Alert.alert('Atenção', 'A data/hora informados estão expirados');
+                return;
+              }
               setNewExpiryDate(newDate);
             }
           }}
         />
       )}
 
-      {/* Modal de lista de quem orou */}
+      {/* Modal de lista de quem orou - CORRIGIDO: com rolagem */}
       <Modal
         visible={showPrayersList}
         transparent
         animationType="fade"
         onRequestClose={() => setShowPrayersList(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.prayersListModal}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPrayersList(false)}>
+          <Pressable style={styles.prayersListModal} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <ThemedText style={styles.modalTitle}>Pessoas que oraram</ThemedText>
               <Pressable onPress={() => setShowPrayersList(false)}>
@@ -1252,6 +1625,7 @@ export default function OracoesScreen() {
                   </View>
                 )}
                 contentContainerStyle={{ paddingVertical: 8 }}
+                showsVerticalScrollIndicator={true}
               />
             ) : (
               <View style={styles.emptyState}>
@@ -1261,19 +1635,20 @@ export default function OracoesScreen() {
                 </ThemedText>
               </View>
             )}
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
-      {/* Modal de comentários */}
+      {/* Modal de comentários - CORRIGIDO com altura dinâmica */}
       <Modal
         visible={showCommentsModal}
         transparent
         animationType="slide"
         onRequestClose={() => setShowCommentsModal(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalOverlayTouch} onPress={() => setShowCommentsModal(false)} />
+          <View style={styles.commentsModalContent}>
             <View style={styles.modalHeader}>
               <ThemedText style={styles.modalTitle}>
                 Comentários - {selectedPrayer?.title}
@@ -1318,7 +1693,9 @@ export default function OracoesScreen() {
                     </ThemedText>
                   </View>
                 }
-                contentContainerStyle={{ paddingVertical: 8 }}
+                contentContainerStyle={styles.commentsListContent}
+                showsVerticalScrollIndicator={true}
+                style={styles.commentsList}
               />
             )}
 
@@ -1352,6 +1729,7 @@ export default function OracoesScreen() {
           </View>
         </View>
       </Modal>
+
     </ThemedView>
   );
 }

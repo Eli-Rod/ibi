@@ -503,14 +503,7 @@ export const createStyles = (theme: AppTheme) =>
       color: '#fff',
     },
 
-    // Modal de lista de quem orou (NOVOS ESTILOS)
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: theme.spacing(2),
-    },
+
 
     prayersListModal: {
       width: '90%',
@@ -610,7 +603,7 @@ export const createStyles = (theme: AppTheme) =>
       alignItems: 'center',
       marginBottom: theme.spacing(0.5),
     },
-    
+
     // Skeletons para Loading
     loadingSkeleton: {
       backgroundColor: theme.colors.card,
@@ -717,4 +710,207 @@ export const createStyles = (theme: AppTheme) =>
       color: theme.colors.muted,
       fontSize: 14,
     },
+
+    // Menu de opções
+    optionsMenu: {
+      position: 'absolute',
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.radius,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      padding: theme.spacing(1),
+      minWidth: 200,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 4,
+        },
+      }),
+      zIndex: 1000,
+    },
+
+    optionsMenuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing(1.5),
+      paddingVertical: theme.spacing(1.5),
+      paddingHorizontal: theme.spacing(2),
+    },
+
+    optionsMenuText: {
+      fontSize: 14,
+      color: theme.colors.text,
+    },
+
+    optionsMenuDivider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing(1),
+    },
+
+    menuOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'transparent',
+      zIndex: 999,
+    },
+
+    // Modal de configuração de lembrete
+    reminderConfigModal: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.radius,
+      padding: theme.spacing(3),
+      width: '90%',
+      maxWidth: 400,
+    },
+
+    reminderConfigContent: {
+      marginTop: theme.spacing(2),
+      gap: theme.spacing(2),
+    },
+
+    reminderConfigText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+
+    reminderInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing(2),
+    },
+
+    reminderInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius,
+      padding: theme.spacing(1.5),
+      fontSize: 16,
+      color: theme.colors.text,
+      backgroundColor: theme.colors.background,
+      textAlign: 'center',
+    },
+
+    reminderTypeButtons: {
+      flex: 2,
+      flexDirection: 'row',
+      gap: theme.spacing(1),
+    },
+
+    reminderTypeButton: {
+      flex: 1,
+      paddingVertical: theme.spacing(1.5),
+      paddingHorizontal: theme.spacing(1),
+      borderRadius: theme.radius,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+    },
+
+    reminderTypeButtonActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+
+    reminderTypeButtonText: {
+      fontSize: 12,
+      color: theme.colors.text,
+    },
+
+    reminderTypeButtonTextActive: {
+      color: '#fff',
+    },
+
+    reminderConfigNote: {
+      fontSize: 12,
+      color: theme.colors.muted,
+      textAlign: 'center',
+    },
+
+    reminderConfigActions: {
+      flexDirection: 'row',
+      gap: theme.spacing(2),
+      marginTop: theme.spacing(2),
+    },
+
+    reminderConfigButton: {
+      flex: 1,
+      paddingVertical: theme.spacing(2),
+      borderRadius: theme.radius,
+      alignItems: 'center',
+    },
+
+    reminderConfigButtonText: {
+      color: '#fff',
+      fontWeight: '700',
+    },
+
+    reminderConfigButtonCancel: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+
+    reminderConfigButtonCancelText: {
+      color: theme.colors.muted,
+    },
+
+    modalOverlay: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+
+    modalOverlayTouch: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+
+    commentsListContainer: {
+      flex: 1,
+      minHeight: 200,
+      maxHeight: 400,
+      marginTop: theme.spacing(2),
+      marginBottom: theme.spacing(2),
+    },
+
+    commentsModalContent: {
+      backgroundColor: theme.colors.card,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: theme.spacing(3),
+      width: '100%',
+      maxHeight: '80%',
+      zIndex: 10,
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+    },
+
+    commentsList: {
+      flex: 1,
+      marginTop: theme.spacing(2),
+      marginBottom: theme.spacing(2),
+    },
+
+    commentsListContent: {
+      paddingVertical: theme.spacing(1),
+      paddingHorizontal: theme.spacing(1),
+    },
+
+
   });
