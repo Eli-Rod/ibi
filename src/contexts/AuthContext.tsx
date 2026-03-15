@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('perfis')
         .select('id, nome_completo, apelido, celular, cep, logradouro, endereco, numero, complemento, bairro, cidade, uf, biometria_ativa, avatar_url')
         .eq('id', userId)
-        .maybeSingle(); // 🔥 Usar maybeSingle em vez de single para evitar erro se não existir
+        .maybeSingle();
       
       if (error) {
         console.error('Erro ao buscar perfil:', error);
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       const keys = await AsyncStorage.getAllKeys();
       const authKeys = keys.filter(key => 
-        key.includes('supabase') || key.includes('sb-') || key.includes('auth')
+        key.includes('supabase') || key.includes('sb-') || key.includes('auth') || key.includes('token')
       );
       
       if (authKeys.length > 0) {
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // 🔥 Função principal de inicialização
+  // 🔥 Função principal de inicialização com tratamento de erro
   const initializeAuth = async () => {
     try {
       setLoading(true);
@@ -133,6 +133,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) {
         console.error('Erro ao buscar sessão:', error);
+        
+        // 🔥 TRATAMENTO ESPECÍFICO PARA REFRESH TOKEN INVÁLIDO
+        if (error.message.includes('Invalid Refresh Token') || 
+            error.message.includes('Refresh Token Not Found')) {
+          console.log('⚠️ Refresh token inválido, limpando sessão local');
+          await clearSession();
+          setLoading(false);
+          return;
+        }
+        
         resetState();
         setLoading(false);
         return;
@@ -149,8 +159,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           fetchUserRoles(session.user.id)
         ]);
         
-        // Se não encontrou perfil, não é necessariamente um erro
-        // Pode ser um usuário novo
         if (!profileData) {
           console.log('⚠️ Usuário sem perfil cadastrado');
         }
@@ -160,8 +168,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       setLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na inicialização:', error);
+      
+      // 🔥 TRATAMENTO DE ERRO NO CATCH
+      if (error.message?.includes('Invalid Refresh Token')) {
+        await clearSession();
+      }
+      
       resetState();
       setLoading(false);
     }

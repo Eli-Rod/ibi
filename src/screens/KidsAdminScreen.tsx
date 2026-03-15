@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, RefreshControl, View } from 'react-native';
+import { PageHeader } from '../components/PageHeader';
 import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
@@ -106,7 +107,7 @@ export default function KidsAdminScreen() {
       // Se não tem aprovado_em, é um check-in. Se já tem, é um check-out.
       const isCheckin = !request.aprovado_em;
       const newStatus = isCheckin ? 'aprovado' : 'finalizado';
-      
+
       console.log('É check-in?', isCheckin);
       console.log('Novo status:', newStatus);
 
@@ -149,7 +150,7 @@ export default function KidsAdminScreen() {
 
       // Remover imediatamente da lista local
       setRequests(prev => prev.filter(r => r.id !== request.id));
-      
+
       Alert.alert('Sucesso', isCheckin ? 'Entrada aprovada!' : 'Saída finalizada!');
 
       // Recarregar após delay para garantir sincronização
@@ -182,17 +183,19 @@ export default function KidsAdminScreen() {
   }
 
   return (
-    <ThemedView style={{ flex: 1 }}>
+    <View style={[ { backgroundColor: 'transparent' }]}>
       <FlatList
         data={requests}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <ThemedText style={styles.title}>Painel do Professor</ThemedText>
-            <ThemedText style={styles.subtitle}>Aprove as entradas e saídas das crianças.</ThemedText>
-          </View>
+          <PageHeader
+            title="Painel do Professor"
+            subtitle="Validando o Chekin e Checkout das crianças do Kids."
+            icon="id-card-outline"
+          // badge={0}
+          />
         }
         renderItem={({ item }) => {
           const isCheckin = !item.aprovado_em;
@@ -213,8 +216,8 @@ export default function KidsAdminScreen() {
                 <View style={[styles.typeBadge, { backgroundColor: isCheckin ? '#DBEAFE' : '#FEF3C7' }]}>
                   <ThemedText style={[styles.typeText, { color: isCheckin ? '#1E40AF' : '#92400E' }]}>{isCheckin ? 'SOLICITAÇÃO DE ENTRADA' : 'SOLICITAÇÃO DE SAÍDA'}</ThemedText>
                 </View>
-                <Pressable 
-                  style={[styles.approveBtn, { backgroundColor: isCheckin ? '#22C55E' : '#F59E0B', opacity: processingRef.current.has(item.id) ? 0.6 : 1 }]} 
+                <Pressable
+                  style={[styles.approveBtn, { backgroundColor: isCheckin ? '#22C55E' : '#F59E0B', opacity: processingRef.current.has(item.id) ? 0.6 : 1 }]}
                   onPress={() => handleApprove(item)}
                   disabled={processingRef.current.has(item.id)}
                 >
@@ -233,6 +236,6 @@ export default function KidsAdminScreen() {
           </View>
         }
       />
-    </ThemedView>
+    </View>
   );
 }

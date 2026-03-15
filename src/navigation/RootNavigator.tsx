@@ -23,6 +23,9 @@ import {
 } from 'react-native';
 
 // Import dos novos componentes/contextos
+import { GradientBackground } from '../components/GradientBackground';
+import { HeaderIcon } from '../components/HeaderIcon';
+import { HeaderShadow } from '../components/HeaderShadow'; // NOVO COMPONENTE
 import { LogoHeader } from '../components/LogoHeader';
 import { OnboardingModal } from '../components/OnboardingModal';
 import { OnboardingProvider, useOnboarding } from '../contexts/OnboardingContext';
@@ -31,7 +34,7 @@ import AdminDevScreen from '../screens/AdminDevScreen';
 import AoVivoScreen from '../screens/AoVivoScreen';
 import CelulasScreen from '../screens/CelulasScreen';
 import ContribuicoesScreen from '../screens/ContribuicoesScreen';
-import DevocionaisScreen from '../screens/DevocionaisScreen';
+import EditoriaisScreen from '../screens/EditoriaisScreen';
 import EventosScreen from '../screens/EventosScreen';
 import Home from '../screens/Home';
 import IgrejaScreen from '../screens/IgrejaScreen';
@@ -48,7 +51,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ScannerScreen from '../screens/ScannerScreen';
 
-import { ThemedText, ThemedView } from '../components/Themed';
+import { ThemedText } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
@@ -62,7 +65,7 @@ type DrawerParamList = {
   'Mensagens': undefined;
   'Ao Vivo': undefined;
   'Contribuições': undefined;
-  Devocionais: undefined;
+  Editoriais: undefined;
   'Orações': undefined;
   KidsStack: undefined;
   'Playlist de Louvor': undefined;
@@ -90,9 +93,9 @@ const KidsStack = createNativeStackNavigator<KidsStackParamList>();
 function KidsStackNavigator() {
   const { theme } = useTheme();
   return (
-    <KidsStack.Navigator screenOptions={{ 
+    <KidsStack.Navigator screenOptions={{
       headerShown: false,
-      contentStyle: { backgroundColor: theme.colors.background }
+      contentStyle: { backgroundColor: 'transparent' }
     }}>
       <KidsStack.Screen name="KidsMain" component={KidsScreen} />
       <KidsStack.Screen name="KidForm" component={KidFormScreen} />
@@ -108,21 +111,22 @@ function AuthenticatedApp() {
   const { needsOnboarding } = useOnboarding();
 
   return (
-    <>
+    <GradientBackground>
+      {/* HeaderShadow adicionado AQUI - dentro do GradientBackground, antes do Drawer */}
+      <HeaderShadow />
       <Drawer.Navigator
         initialRouteName={needsOnboarding ? "Perfil" : "Home"}
         drawerContent={(props) => <CustomDrawer {...props} />}
         screenOptions={({ navigation }) => ({
-          headerStyle: { backgroundColor: theme.colors.card },
+          headerStyle: {
+            backgroundColor: theme.colors.card, // Header com cor sólida
+          },
           headerTintColor: theme.colors.text,
           headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable
-              onPress={() => navigation.toggleDrawer()}
-              style={{ paddingHorizontal: 12 }}
-            >
-              <Ionicons name="menu-outline" size={24} color={theme.colors.text} />
-            </Pressable>
+          headerRight: () => (
+            <View style={{ marginRight: 25, flexDirection: 'row', alignItems: 'center' }}>
+              <HeaderIcon />
+            </View>
           ),
           headerTitle: () => <LogoHeader />,
           headerTitleAlign: 'center',
@@ -130,14 +134,14 @@ function AuthenticatedApp() {
             width: 290,
             backgroundColor: theme.colors.background,
           },
-          sceneStyle: { backgroundColor: theme.colors.background },
+          sceneStyle: { backgroundColor: 'transparent' }, // Fundo transparente para ver o gradiente
           unmountOnBlur: true,
         })}
       >
-        <Drawer.Screen 
-          name="Home" 
-          component={Home} 
-          options={{ title: undefined }} 
+        <Drawer.Screen
+          name="Home"
+          component={Home}
+          options={{ title: undefined }}
         />
         <Drawer.Screen name="Igreja" component={IgrejaScreen} />
         <Drawer.Screen name="Ministérios" component={MinisteriosScreen} />
@@ -146,12 +150,12 @@ function AuthenticatedApp() {
         <Drawer.Screen name="Mensagens" component={MensagensScreen} />
         <Drawer.Screen name="Ao Vivo" component={AoVivoScreen} />
         <Drawer.Screen name="Contribuições" component={ContribuicoesScreen} />
-        <Drawer.Screen name="Devocionais" component={DevocionaisScreen} />
+        <Drawer.Screen name="Editoriais" component={EditoriaisScreen} />
         <Drawer.Screen name="Orações" component={OracoesScreen} />
-        <Drawer.Screen 
-          name="KidsStack" 
-          component={KidsStackNavigator} 
-          options={{ title: 'Kids' }} 
+        <Drawer.Screen
+          name="KidsStack"
+          component={KidsStackNavigator}
+          options={{ title: 'Kids' }}
         />
         <Drawer.Screen name="Playlist de Louvor" component={PlaylistLouvorScreen} />
         <Drawer.Screen name="Eventos" component={EventosScreen} />
@@ -163,10 +167,10 @@ function AuthenticatedApp() {
           <Drawer.Screen name="Admin Dev" component={AdminDevScreen} options={{ title: 'Gerenciador de Papéis' }} />
         )}
       </Drawer.Navigator>
-      
+
       {/* Modal de onboarding global */}
       <OnboardingModal />
-    </>
+    </GradientBackground>
   );
 }
 
@@ -180,7 +184,7 @@ export default function RootNavigator() {
     dark: theme.mode === 'dark',
     colors: {
       ...base.colors,
-      background: theme.colors.background,
+      background: 'transparent', // Fundo transparente para ver o gradiente
       card: theme.colors.card,
       text: theme.colors.text,
       border: theme.colors.border,
@@ -191,29 +195,37 @@ export default function RootNavigator() {
 
   if (loading) {
     return (
-      <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </ThemedView>
+      <GradientBackground>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      </GradientBackground>
     );
   }
 
   return (
-    <OnboardingProvider>
-      <NavigationContainer theme={navTheme}>
-        {user ? (
-          <AuthenticatedApp />
-        ) : (
-          <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-            <AuthStack.Screen name="Login" component={LoginScreen} />
-            <AuthStack.Screen name="Cadastro" component={RegisterScreen} />
-          </AuthStack.Navigator>
-        )}
-      </NavigationContainer>
-    </OnboardingProvider>
+    <View style={{ flex: 1 }}>
+      <OnboardingProvider>
+        <NavigationContainer theme={navTheme}>
+          {user ? (
+            <AuthenticatedApp />
+          ) : (
+            <GradientBackground>
+              <View style={{ flex: 1 }}>
+                <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+                  <AuthStack.Screen name="Login" component={LoginScreen} />
+                  <AuthStack.Screen name="Cadastro" component={RegisterScreen} />
+                </AuthStack.Navigator>
+              </View>
+            </GradientBackground>
+          )}
+        </NavigationContainer>
+      </OnboardingProvider>
+    </View>
   );
 }
 
-// CustomDrawer permanece EXATAMENTE igual ao seu código original
+// CustomDrawer permanece igual
 function CustomDrawer(props: DrawerContentComponentProps) {
   const { theme } = useTheme();
   const { user, hasRole, signOut } = useAuth();
@@ -225,7 +237,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
   useEffect(() => {
     if (user) {
       fetchProfileData();
-      
+
       const profileSub = DeviceEventEmitter.addListener('profile.updated', (profileData) => {
         if (profileData) {
           updateNameFromProfile(profileData);
@@ -238,9 +250,9 @@ function CustomDrawer(props: DrawerContentComponentProps) {
 
       const channel = supabase
         .channel('profile_changes')
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
           table: 'perfis',
           filter: `id=eq.${user.id}`
         }, (payload) => {
@@ -265,7 +277,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
         .select('nome_completo, apelido')
         .eq('id', user?.id)
         .single();
-      
+
       if (error) {
         console.error('Erro ao buscar perfil:', error);
         return;
@@ -288,7 +300,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
 
   function updateNameFromProfile(data: any) {
     if (!data) return;
-    
+
     if (data?.apelido && data.apelido.trim() !== '') {
       setDisplayName(data.apelido);
     } else if (data?.nome_completo && data.nome_completo.trim() !== '') {
@@ -301,18 +313,18 @@ function CustomDrawer(props: DrawerContentComponentProps) {
   const items: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'Home', label: 'Início', icon: 'home-outline' },
     { key: 'Igreja', label: 'Igreja', icon: 'business-outline' },
-    { key: 'Ministérios', label: 'Ministérios', icon: 'list-circle-outline' },
+    { key: 'Ministérios', label: 'Ministérios', icon: 'list-outline' },
     { key: 'Células', label: 'Células', icon: 'people-outline' },
     { key: 'Notícias', label: 'Notícias', icon: 'newspaper-outline' },
     { key: 'Mensagens', label: 'Mensagens', icon: 'videocam-outline' },
     { key: 'Ao Vivo', label: 'Ao Vivo', icon: 'radio-outline' },
     { key: 'Contribuições', label: 'Contribuições', icon: 'card-outline' },
-    { key: 'Devocionais', label: 'Devocionais', icon: 'book-outline' },
+    { key: 'Editoriais', label: 'Editoriais', icon: 'book-outline' },
     { key: 'Orações', label: 'Orações', icon: 'heart-outline' },
     { key: 'KidsStack', label: 'Kids', icon: 'happy-outline' },
-    { key: 'Playlist de Louvor', label: 'Playlist de Louvor', icon: 'musical-notes-outline' },
+    { key: 'Playlist de Louvor', label: 'Playlist de Louvor', icon: 'headset-outline' },
     { key: 'Eventos', label: 'Eventos', icon: 'calendar-outline' },
-    ...(userHasRole('kids') ? [{ key: 'Kids Admin', label: 'Kids (Professor)', icon: 'shield-checkmark-outline' as const }] : []),
+    ...(userHasRole('kids') ? [{ key: 'Kids Admin', label: 'Kids (Professor)', icon: 'id-card-outline' as const }] : []),
     ...(userHasRole('admin-dev') ? [{ key: 'Admin Dev', label: 'Gerenciador de Papéis', icon: 'settings-outline' as const }] : []),
   ];
 
@@ -369,10 +381,10 @@ function CustomDrawer(props: DrawerContentComponentProps) {
 
       <DrawerContentScrollView
         {...props}
-        contentContainerStyle={{ 
+        contentContainerStyle={{
           paddingTop: 106,
-          backgroundColor: theme.colors.background, 
-          flexGrow: 1 
+          backgroundColor: 'transparent',
+          flexGrow: 1
         }}
       >
         <View style={{ padding: 8, gap: 4 }}>
@@ -413,7 +425,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
         </View>
 
         <View style={{ flex: 1 }} />
-        
+
         <View
           style={{
             padding: 12,
@@ -436,7 +448,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
             <Ionicons name="settings-outline" size={20} color={theme.colors.text} />
             <ThemedText style={{ fontWeight: '700' }}>Perfil e Configurações</ThemedText>
           </Pressable>
-          
+
           <Pressable
             onPress={signOut}
             style={{

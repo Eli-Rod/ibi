@@ -1,9 +1,29 @@
-import { ThemedText, ThemedView } from '../components/Themed';
-export default function IgrejaScreen() {
+import React, { useMemo } from 'react';
+import { View } from 'react-native';
+
+import { PageHeader } from '../components/PageHeader';
+
+import { useTheme } from '../theme/ThemeProvider';
+
+import { createStyles } from './styles/MinisteriosScreen.styles';
+
+export default function MinisteriosScreen() {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
-    <ThemedView style={{ flex: 1, padding: 16 }}>
-      <ThemedText style={{ fontSize: 18, fontWeight: '700' }}>Sobre a IBI</ThemedText>
-      <ThemedText>Conteúdo institucional da igreja…</ThemedText>
-    </ThemedView>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <View style={styles.content}>
+        <PageHeader
+          title="Sobre a Igreja"
+          subtitle="Conteúdo institucional da igreja…"
+          icon="business-outline"
+          // badge={0}
+        />
+        
+        {/* Aqui virá o conteúdo dos ministérios posteriormente */}
+        
+      </View>
+    </View>
   );
 }

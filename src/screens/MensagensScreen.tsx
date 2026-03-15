@@ -5,6 +5,7 @@ import React from 'react';
 import { FlatList, Image, Pressable, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { PageHeader } from '../components/PageHeader';
 import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
 import { MESSAGES_CONFIG } from '../config/messages';
 import { useTheme } from '../theme/ThemeProvider';
@@ -119,7 +120,7 @@ export default function MensagensScreen({ route, navigation }: any) {
                 end={{ x: 1, y: 1 }}
               />
             )}
-            
+
             {/* Overlay escuro para destacar o botão play */}
             <View style={s.thumbnailOverlay}>
               <View style={s.playButton}>
@@ -134,7 +135,7 @@ export default function MensagensScreen({ route, navigation }: any) {
           <ThemedText style={s.videoTitle} numberOfLines={2}>
             {titleWithoutDate}
           </ThemedText>
-          
+
           <View style={s.videoMeta}>
             {date ? (
               <>
@@ -279,14 +280,23 @@ export default function MensagensScreen({ route, navigation }: any) {
 
   // 3️⃣ Lista padrão
   return (
-    <ThemedView style={s.container}>
-      <FlatList
-        contentContainerStyle={s.content}
-        data={MESSAGES_CONFIG.items}
-        keyExtractor={(i) => i.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-      />
-    </ThemedView>
+    <>
+      <View style={[s.container, { backgroundColor: 'transparent', flex: 1  }]}>
+        <PageHeader
+          title="Cultos e Mensagens"
+          subtitle="Reveja as mensagens e cultos da sua igreja."
+          icon="videocam-outline"
+        // badge={0}
+        />
+        <FlatList
+          contentContainerStyle={s.content}
+          data={MESSAGES_CONFIG.items}
+          keyExtractor={(i) => i.id}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
+        />
+      </View>
+    </>
   );
 }

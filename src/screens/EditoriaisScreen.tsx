@@ -15,13 +15,13 @@ export default function MinisteriosScreen() {
     <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <View style={styles.content}>
         <PageHeader
-          title="Notícias"
-          subtitle="Fique por dentro das últimas novidades da igreja"
-          icon="newspaper-outline"
+          title="Editoriais da Semana"
+          subtitle="Você terá acesso a conteúdos relevantes para a sua vida espiritual e orientações sobre as atividades desenvolvidas por nossa igreja."
+          icon="book-outline"
           // badge={0}
         />
         
-        {/* Aqui virá o conteúdo informativo */}
+        {/* Aqui virá o conteúdo de leitura */}
         
       </View>
     </View>

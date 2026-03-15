@@ -6,6 +6,7 @@ import { buildTheme, ColorMode, Theme } from './tokens';
 type ThemeCtx = {
   theme: Theme;
   setMode: (mode: ColorMode) => void;
+  isLoading: boolean; // Adicionado para a splash screen saber quando o tema está carregado
 };
 
 const Ctx = createContext<ThemeCtx | null>(null);
@@ -56,12 +57,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return t;
   }, [mode]);
 
-  // Não renderizar até carregar o tema salvo
-  if (isLoading) {
-    return null;
-  }
-
-  return <Ctx.Provider value={{ theme, setMode }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ theme, setMode, isLoading }}>{children}</Ctx.Provider>;
 }
 
 export function useTheme() {

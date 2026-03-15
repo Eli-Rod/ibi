@@ -12,7 +12,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { ThemedText, ThemedView } from '../components/Themed';
+import { LoginLogo } from '../components/LoginLogo'; // NOVO COMPONENTE
+import { ThemedText } from '../components/Themed';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
 import { createStyles } from './styles/LoginScreen.styles';
@@ -86,12 +87,13 @@ export default function LoginScreen() {
   }
 
   return (
-    <ThemedView style={styles.flex}>
+    <View style={[styles.flex, { backgroundColor: 'transparent' }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.container}>
+          <LoginLogo />
           <View style={styles.header}>
             <ThemedText style={styles.title}>Bem-vindo</ThemedText>
             <ThemedText style={styles.subtitle}>
@@ -290,6 +292,6 @@ export default function LoginScreen() {
           </View>
         </View>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }

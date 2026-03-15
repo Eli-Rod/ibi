@@ -5,7 +5,7 @@ export const createStyles = (theme: AppTheme) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
+      // backgroundColor: theme.colors.background,
     },
 
     content: {

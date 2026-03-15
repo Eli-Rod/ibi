@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { ThemedText, ThemedView } from '../components/Themed';
+import { ThemedText } from '../components/Themed';
 import { LIVE_CONFIG } from '../config/live';
 import { useTheme } from '../theme/ThemeProvider';
 import { createStyles } from './styles/AoVivoScreen.styles';
@@ -134,7 +134,7 @@ export default function AoVivoScreen() {
   };
 
   return (
-    <ThemedView style={s.container}>
+    <View style={[s.container, { backgroundColor: 'transparent' }]}>
       <ScrollView
         contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
@@ -281,6 +281,6 @@ export default function AoVivoScreen() {
           </Pressable>
         </View>
       </ScrollView>
-    </ThemedView>
+    </View>
   );
 }

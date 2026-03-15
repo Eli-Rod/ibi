@@ -1,22 +1,25 @@
 {
   "expo": {
-    "name": "ibi",
+    "name": "Igreja Batista Identidade",
     "slug": "ibi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logoIbi.png",
+    "icon": "./assets/logo_app_gaveta.png",
     "scheme": "ibi",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/logoIbi.png",
-        "backgroundImage": "./assets/logoIbi.png",
-        "monochromeImage": "./assets/logoIbi.png"
+        "foregroundImage": "./assets/logo_ibi_preto_trans.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -24,18 +27,20 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/logoIbi.png"
+      "favicon": "./assets/logo_ibi_preto_trans.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logoIbi.jpg",
+          "image": "./assets/logo_ibi_preto_trans.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
+          "enableFullScreenImage": false,
           "dark": {
+            "image": "./assets/logo_ibi_branco_trans.png",
             "backgroundColor": "#000000"
           }
         }
@@ -43,7 +48,6 @@
       "expo-font",
       "expo-web-browser",
       "expo-secure-store",
-      "@react-native-community/datetimepicker",
       [
         "expo-notifications",
         {
@@ -60,9 +64,6 @@
       "reactCompiler": true
     },
     "extra": {
-      "YOUTUBE_API_KEY": "COLE_SUA_API_KEY_AQUI",
-      "YOUTUBE_CHANNEL_ID": "UCxxxxxxxxxxxxxxxx",
-      "router": {},
       "eas": {
         "projectId": "c2af779e-e5b1-447a-9718-ed03f511a3cb"
       }

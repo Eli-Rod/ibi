@@ -40,6 +40,13 @@ export const createStyles = (theme: AppTheme) =>
     card: {
       marginBottom: 16,
       padding: 16,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 5,
+      borderRadius: 12,
+      backgroundColor: theme.colors.card,
     },
 
     cardRow: {

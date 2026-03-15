@@ -66,7 +66,7 @@ export default function Home() {
   const warningDark = adjustColor(theme.colors.warning, -30);
 
   return (
-    <ThemedView style={{ flex: 1 }}>
+    <ThemedView style={{ flex: 1, backgroundColor: 'transparent' }}>
       <ScrollView 
         contentContainerStyle={s.container}
         showsVerticalScrollIndicator={false}

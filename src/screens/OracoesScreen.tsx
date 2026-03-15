@@ -16,7 +16,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { ThemedText, ThemedView } from '../components/Themed';
+import { PageHeader } from '../components/PageHeader'; // NOVO COMPONENTE
+import { ThemedText } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
@@ -1191,12 +1192,13 @@ export default function OracoesScreen() {
   ];
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       {loading && prayers.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
+          {/* SKELETON LOADING - mantém o mesmo estilo do header original */}
           <View style={styles.header}>
             <View style={[styles.skeletonLine, { width: 150, height: 36 }]} />
             <View style={[styles.skeletonLine, { width: '100%', height: 20, marginTop: 8 }]} />
@@ -1241,12 +1243,13 @@ export default function OracoesScreen() {
             }
             ListHeaderComponent={
               <>
-                <View style={styles.header}>
-                  <ThemedText style={styles.headerTitle}>Orações</ThemedText>
-                  <ThemedText style={styles.headerSubtitle}>
-                    Compartilhe seus pedidos e ore por outros irmãos
-                  </ThemedText>
-                </View>
+                {/* NOVO COMPONENTE PAGEHEADER */}
+                <PageHeader
+                  title="Orações"
+                  subtitle="Compartilhe seus pedidos e ore por outros irmãos"
+                  icon="heart-outline"
+                  badge={stats.total}
+                />
 
                 <View style={styles.statsContainer}>
                   <View style={styles.statCard}>
@@ -1337,7 +1340,7 @@ export default function OracoesScreen() {
         </>
       )}
 
-      {/* Modal de configuração de lembrete */}
+      {/* Modais existentes (inalterados) */}
       <Modal
         visible={showReminderConfig}
         transparent
@@ -1588,7 +1591,7 @@ export default function OracoesScreen() {
         />
       )}
 
-      {/* Modal de lista de quem orou - CORRIGIDO: com rolagem */}
+      {/* Modal de lista de quem orou */}
       <Modal
         visible={showPrayersList}
         transparent
@@ -1639,7 +1642,7 @@ export default function OracoesScreen() {
         </Pressable>
       </Modal>
 
-      {/* Modal de comentários - CORRIGIDO com altura dinâmica */}
+      {/* Modal de comentários */}
       <Modal
         visible={showCommentsModal}
         transparent
@@ -1729,7 +1732,6 @@ export default function OracoesScreen() {
           </View>
         </View>
       </Modal>
-
-    </ThemedView>
+    </View>
   );
 }

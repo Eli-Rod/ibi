@@ -15,6 +15,8 @@ export const palette = {
   success: '#22C55E',
   warning: '#F59E0B',
   danger: '#EF4444',
+  shadowLight: '#46484f',
+  shadowDark: '#b2bdcc',
 };
 
 export type Theme = {
@@ -29,6 +31,7 @@ export type Theme = {
     success: string;
     warning: string;
     danger: string;
+    shadow: string;
     notification: string; // exigido pelo React Navigation
   };
   spacing: (n: number) => number;
@@ -59,6 +62,7 @@ export function buildTheme(mode: ColorMode, overrides?: Partial<Theme>): Theme {
       success: palette.success,
       warning: palette.warning,
       danger: palette.danger,
+      shadow: dark ? palette.shadowDark : palette.shadowLight,
       notification: palette.primary,
     },
     spacing: (n) => n * 8,

@@ -11,6 +11,7 @@ import {
   RefreshControl,
   View,
 } from 'react-native';
+import { PageHeader } from '../components/PageHeader';
 import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
@@ -54,10 +55,10 @@ export default function KidsScreen() {
       const merged = (kidsData || []).map(kid => {
         // Pegar o check-in mais recente para este kid
         const kidCheckins = (checkinsData || []).filter(c => c.kid_id === kid.id);
-        const currentCheckin = kidCheckins.length > 0 
+        const currentCheckin = kidCheckins.length > 0
           ? kidCheckins.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())[0]
           : undefined;
-        
+
         return {
           ...kid,
           currentCheckin,
@@ -331,7 +332,7 @@ export default function KidsScreen() {
   }
 
   return (
-    <ThemedView style={styles.flex}>
+    <View style={[styles.flex, { backgroundColor: 'transparent' }]}>
       <FlatList
         data={kids}
         keyExtractor={item => item.id}
@@ -344,14 +345,14 @@ export default function KidsScreen() {
           />
         }
         ListHeaderComponent={
-          <View style={styles.header}>
-            <ThemedText style={styles.title}>
-              Módulo Kids
-            </ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Gerencie a segurança e o check-in dos seus filhos.
-            </ThemedText>
-          </View>
+          <>
+          <PageHeader
+                    title="Kids"
+                    subtitle="Gerencie a segurança dos seus filhos."
+                    icon="happy-outline"
+                    // badge={0}
+          />          
+          </>
         }
         renderItem={({ item }) => {
           const status = getStatusLabel(
@@ -507,6 +508,6 @@ export default function KidsScreen() {
           </Pressable>
         }
       />
-    </ThemedView>
+    </View>
   );
 }

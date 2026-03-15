@@ -1,51 +1,35 @@
-import React from 'react';
-import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
-import EventItem from '../components/EventItem';
-import { ThemedText, ThemedView } from '../components/Themed';
+import React, { useMemo } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { useEventos } from '../hooks/useEventos';
 import { useTheme } from '../theme/ThemeProvider';
-import type { Theme as AppTheme } from '../theme/tokens';
 
-const makeStyles = (t: AppTheme) =>
-  StyleSheet.create({
-    container: { flex: 1 },
-    listContent: { padding: t.spacing(2), gap: t.spacing(2) },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    emptyText: { textAlign: 'center', marginTop: 20, color: t.colors.muted }
-  });
+import { PageHeader } from '../components/PageHeader';
+
+import { createStyles } from './styles/EventosScreen.styles';
+
 
 export default function EventosScreen() {
   const { theme } = useTheme();
-  const s = React.useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   const { data: eventos, loading, refreshing, onRefresh } = useEventos({ futuros: true });
 
   if (loading && !refreshing) {
     return (
-      <ThemedView style={s.loadingContainer}>
+      <View style={styles.container}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-      </ThemedView>
+        <View style={styles.content}>
+          <PageHeader
+            title="Eventos"
+            subtitle="Fique de olho nos eventos que estão acontecendo na igreja."
+            icon="calendar-outline"
+          // badge={0}
+          />
+
+          {/* Aqui virá o conteúdo de leitura */}
+
+        </View>
+      </View>
     );
   }
-
-  return (
-    <ThemedView style={s.container}>
-      <FlatList
-        data={eventos}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={s.listContent}
-        renderItem={({ item }) => (
-          <EventItem 
-            title={item.titulo} 
-            date={item.inicio_em ? new Date(item.inicio_em).toLocaleDateString('pt-BR') : 'Data a definir'} 
-            location={item.local}
-          />
-        )}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ListEmptyComponent={
-          <ThemedText style={s.emptyText}>Nenhum evento encontrado.</ThemedText>
-        }
-      />
-    </ThemedView>
-  );
 }

@@ -9,7 +9,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { ThemedCard, ThemedText, ThemedView } from '../components/Themed';
+import { PageHeader } from '../components/PageHeader';
+import { ThemedCard, ThemedText } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
@@ -130,7 +131,7 @@ export default function AdminDevScreen() {
       if (error) throw error;
 
       Alert.alert('Sucesso', `Papel '${role}' adicionado a ${userToUpdate.nome_completo}`);
-      
+
       // Atualizar a lista local
       setUsers(prevUsers =>
         prevUsers.map(u =>
@@ -139,7 +140,7 @@ export default function AdminDevScreen() {
             : u
         )
       );
-      
+
       setShowRoleModal(false);
     } catch (error: any) {
       Alert.alert('Erro', error.message);
@@ -166,7 +167,7 @@ export default function AdminDevScreen() {
               if (error) throw error;
 
               Alert.alert('Sucesso', `Papel '${role}' removido de ${userToUpdate.nome_completo}`);
-              
+
               // Atualizar a lista local
               setUsers(prevUsers =>
                 prevUsers.map(u =>
@@ -190,7 +191,7 @@ export default function AdminDevScreen() {
   };
 
   return (
-    <ThemedView style={styles.flex}>
+    <View style={[styles.flex, { backgroundColor: 'transparent' }]}>
       <FlatList
         data={users}
         keyExtractor={item => item.id}
@@ -204,10 +205,12 @@ export default function AdminDevScreen() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <ThemedText style={styles.title}>Gerenciador de Papéis</ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Busque e gerencie os papéis (roles) dos usuários do IBI.
-            </ThemedText>
+            <PageHeader
+              title="Gerenciador de Papéis"
+              subtitle="Busque e gerencie os papéis (roles) dos usuários da IBI."
+              icon="book-outline"
+            // badge={0}
+            />
 
             <View style={styles.searchContainer}>
               <Ionicons name="search-outline" size={20} color={theme.colors.muted} />
@@ -322,6 +325,6 @@ export default function AdminDevScreen() {
           </View>
         </View>
       )}
-    </ThemedView>
+    </View>
   );
 }

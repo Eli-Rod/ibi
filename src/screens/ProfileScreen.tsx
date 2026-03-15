@@ -23,11 +23,13 @@ import {
 
 import { ThemedCard, ThemedText } from '../components/Themed';
 import { useAuth } from '../contexts/AuthContext';
+import { useGradient } from '../contexts/GradientContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../theme/ThemeProvider';
 import { lookupCep } from '../utils/handleCepLookup';
 import { createStyles } from './styles/ProfileScreen.styles';
+
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -35,6 +37,8 @@ export default function ProfileScreen() {
   const { theme, setMode } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const navigation = useNavigation<any>();
+  const { intensity, setIntensity } = useGradient();
+
 
   const { user, profile, refreshProfile, signOut } = useAuth();
   const { needsOnboarding, setNeedsOnboarding } = useOnboarding();
@@ -548,13 +552,13 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <View style={{ flex: 1, backgroundColor: 'transparent' /*backgroundColor: theme.colors.background*/ }}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ 
+          contentContainerStyle={{
             flexGrow: 1,
             paddingBottom: isKeyboardVisible ? keyboardHeight + 50 : 0, // Espaço extra para o teclado
           }}
@@ -578,7 +582,7 @@ export default function ProfileScreen() {
           )}
 
           {/* HEADER */}
-          <View style={styles.header}>
+          <View style={[styles.header, { backgroundColor: 'transparent' }]}>
             <Pressable onPress={pickImage} style={styles.avatarContainer}>
               {uploading ? (
                 <ActivityIndicator color={theme.colors.primary} />
@@ -912,11 +916,11 @@ export default function ProfileScreen() {
                 <View style={styles.configRow}>
                   <View>
                     <ThemedText style={styles.configTitle}>Tema do Aplicativo</ThemedText>
-                    <ThemedText style={styles.configDesc}>Escolha entre claro, escuro ou sistema</ThemedText>
+                    <ThemedText style={styles.configDesc}>Escolha entre claro ou escuro</ThemedText>
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  {(['light', 'dark', 'system'] as const).map((m) => (
+                  {(['light', 'dark'] as const).map((m) => (
                     <Pressable
                       key={m}
                       onPress={() => setMode(m)}
@@ -935,13 +939,53 @@ export default function ProfileScreen() {
                         fontWeight: '700',
                         color: theme.mode === m ? theme.colors.primary : theme.colors.text
                       }}>
-                        {m === 'light' ? 'Claro' : m === 'dark' ? 'Escuro' : 'Sistema'}
+                        {m === 'light' ? 'Claro' : 'Escuro'}
                       </ThemedText>
                     </Pressable>
                   ))}
                 </View>
-              </ThemedCard>
 
+                {/* NOVA SEÇÃO: Intensidade do Gradiente */}
+                <View style={[styles.configDivider, { marginVertical: 16 }]} />
+
+                <View>
+                  <ThemedText style={styles.configTitle}>Efeito de Fundo</ThemedText>
+                  <ThemedText style={[styles.configDesc, { marginBottom: 12 }]}>
+                    Intensidade do degradê
+                  </ThemedText>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[
+                      { value: 'light', label: 'Suave' },
+                      { value: 'medium', label: 'Médio' },
+                      { value: 'strong', label: 'Forte' }
+                    ].map((item) => (
+                      <Pressable
+                        key={item.value}
+                        onPress={() => {
+                          setIntensity(item.value as any);
+                        }}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: intensity === item.value ? theme.colors.primary : theme.colors.border,
+                          backgroundColor: intensity === item.value ? theme.colors.primary + '20' : 'transparent',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <ThemedText style={{
+                          fontSize: 12,
+                          fontWeight: '600',
+                          color: intensity === item.value ? theme.colors.primary : theme.colors.text
+                        }}>
+                          {item.label}
+                        </ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              </ThemedCard>
               {/* SEGURANÇA */}
               <ThemedText style={styles.sectionTitle}>Segurança</ThemedText>
               <ThemedCard style={styles.configCard}>
