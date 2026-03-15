@@ -128,6 +128,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setLoading(true);
       
+      // 🔥 PRIMEIRO: Limpar qualquer sessão local antes de tentar buscar
+      await supabase.auth.signOut({ scope: 'local' });
+      
       // Buscar sessão atual
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -211,6 +214,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           await fetchProfile(session.user.id);
         }
+      } else if (event === 'INITIAL_SESSION') {
+        // Ignorar INITIAL_SESSION - já tratamos no initializeAuth
+        console.log('ℹ️ Evento INITIAL_SESSION ignorado');
       }
       
       setLoading(false);
