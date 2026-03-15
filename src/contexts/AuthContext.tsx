@@ -3,7 +3,9 @@ import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, DeviceEventEmitter } from 'react-native';
 import { supabase } from '../services/supabase';
+import { useTheme } from '../theme/ThemeProvider';
 import { Profile } from '../types/content';
+
 
 type AuthContextData = {
   user: User | null;
@@ -25,7 +27,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const { setUserId } = useTheme();
+
   const refreshAttempts = useRef(0);
   const maxRefreshAttempts = 3;
 
@@ -41,16 +44,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchProfile = async (userId: string, retryCount = 0): Promise<Profile | null> => {
     try {
       console.log(`📥 Buscando perfil para usuário: ${userId} (tentativa ${retryCount + 1})`);
-      
+
       const { data, error } = await supabase
         .from('perfis')
         .select('id, nome_completo, apelido, celular, cep, logradouro, endereco, numero, complemento, bairro, cidade, uf, biometria_ativa, avatar_url')
         .eq('id', userId)
         .maybeSingle();
-      
+
       if (error) {
         console.error('Erro ao buscar perfil:', error);
-        
+
         // Retry até 3 vezes
         if (retryCount < 3) {
           await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
@@ -58,7 +61,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         return null;
       }
-      
+
       if (data) {
         console.log('✅ Perfil encontrado:', data.apelido || data.nome_completo);
         setProfile(data);
@@ -81,7 +84,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('usuarios_papeis')
         .select('papel')
         .eq('usuario_id', userId);
-      
+
       if (error) throw error;
       const roles = data?.map(r => r.papel) || [];
       setUserRoles(roles);
@@ -105,16 +108,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('🧹 Limpando sessão...');
       await supabase.auth.signOut({ scope: 'local' });
-      
+
       const keys = await AsyncStorage.getAllKeys();
-      const authKeys = keys.filter(key => 
+      const authKeys = keys.filter(key =>
         key.includes('supabase') || key.includes('sb-') || key.includes('auth') || key.includes('token')
       );
-      
+
       if (authKeys.length > 0) {
         await AsyncStorage.multiRemove(authKeys);
       }
-      
+
       resetState();
       console.log('✅ Sessão limpa');
     } catch (error) {
@@ -127,25 +130,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const initializeAuth = async () => {
     try {
       setLoading(true);
-      
+
       // 🔥 PRIMEIRO: Limpar qualquer sessão local antes de tentar buscar
       await supabase.auth.signOut({ scope: 'local' });
-      
+
       // Buscar sessão atual
       const { data: { session }, error } = await supabase.auth.getSession();
-      
+
       if (error) {
         console.error('Erro ao buscar sessão:', error);
-        
+
         // 🔥 TRATAMENTO ESPECÍFICO PARA REFRESH TOKEN INVÁLIDO
-        if (error.message.includes('Invalid Refresh Token') || 
-            error.message.includes('Refresh Token Not Found')) {
+        if (error.message.includes('Invalid Refresh Token') ||
+          error.message.includes('Refresh Token Not Found')) {
           console.log('⚠️ Refresh token inválido, limpando sessão local');
           await clearSession();
           setLoading(false);
           return;
         }
-        
+
         resetState();
         setLoading(false);
         return;
@@ -155,13 +158,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('👤 Usuário encontrado na sessão:', session.user.email);
         setUser(session.user);
         setSession(session);
-        
+
         // Buscar perfil e papéis em paralelo
         const [profileData] = await Promise.all([
           fetchProfile(session.user.id),
           fetchUserRoles(session.user.id)
         ]);
-        
+
         if (!profileData) {
           console.log('⚠️ Usuário sem perfil cadastrado');
         }
@@ -169,16 +172,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('👤 Nenhuma sessão ativa');
         resetState();
       }
-      
+
       setLoading(false);
     } catch (error: any) {
       console.error('Erro na inicialização:', error);
-      
+
       // 🔥 TRATAMENTO DE ERRO NO CATCH
       if (error.message?.includes('Invalid Refresh Token')) {
         await clearSession();
       }
-      
+
       resetState();
       setLoading(false);
     }
@@ -191,12 +194,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Listener para mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('📡 Auth event:', event);
-      
+
+      // 🔥 Atualiza o userId no ThemeProvider
+      setUserId(session?.user?.id || null);
+
       if (event === 'SIGNED_IN') {
         console.log('✅ Login detectado');
         setUser(session?.user ?? null);
         setSession(session);
-        
+
         if (session?.user) {
           await Promise.all([
             fetchProfile(session.user.id),
@@ -218,7 +224,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Ignorar INITIAL_SESSION - já tratamos no initializeAuth
         console.log('ℹ️ Evento INITIAL_SESSION ignorado');
       }
-      
+
       setLoading(false);
     });
 
@@ -231,12 +237,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) {
         console.log('Erro no logout:', error);
         await clearSession();
       }
-      
+
       resetState();
       Alert.alert('Sucesso', 'Você saiu da sua conta.');
     } catch (error) {
@@ -248,16 +254,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      profile, 
-      loading, 
-      userRoles, 
-      hasRole, 
-      refreshProfile, 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      profile,
+      loading,
+      userRoles,
+      hasRole,
+      refreshProfile,
       signOut,
-      clearSession 
+      clearSession
     }}>
       {children}
     </AuthContext.Provider>

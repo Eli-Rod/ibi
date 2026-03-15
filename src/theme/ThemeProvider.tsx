@@ -6,7 +6,8 @@ import { buildTheme, ColorMode, Theme } from './tokens';
 type ThemeCtx = {
   theme: Theme;
   setMode: (mode: ColorMode) => void;
-  isLoading: boolean; // Adicionado para a splash screen saber quando o tema está carregado
+  isLoading: boolean;
+  setUserId: (id: string | null) => void; // 🔥 Nova função para atualizar o userId
 };
 
 const Ctx = createContext<ThemeCtx | null>(null);
@@ -15,14 +16,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const deviceScheme = useColorScheme();
   const [mode, setModeState] = useState<ColorMode>((deviceScheme ?? 'light') as ColorMode);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null); // 🔥 Estado para armazenar o userId
 
-  // Carregar tema salvo do AsyncStorage ao iniciar
+  // 🔥 Carregar tema salvo do usuário no AsyncStorage
   useEffect(() => {
     (async () => {
       try {
-        const savedMode = await AsyncStorage.getItem('theme.mode');
-        if (savedMode && (savedMode === 'light' || savedMode === 'dark' || savedMode === 'system')) {
-          setModeState(savedMode as ColorMode);
+        if (userId) {
+          // Se tem usuário logado, carrega o tema dele
+          const savedMode = await AsyncStorage.getItem(`theme.mode.${userId}`);
+          if (savedMode && (savedMode === 'light' || savedMode === 'dark')) {
+            setModeState(savedMode as ColorMode);
+          } else {
+            // Se não tem tema salvo, usa o padrão (sistema)
+            setModeState((deviceScheme ?? 'light') as ColorMode);
+          }
+        } else {
+          // Se não tem usuário, usa o tema do sistema
+          setModeState((deviceScheme ?? 'light') as ColorMode);
         }
       } catch (error) {
         console.error('Erro ao carregar tema:', error);
@@ -30,13 +41,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     })();
-  }, []);
+  }, [userId]); // 🔥 Recarrega quando o usuário mudar
 
-  // Função para atualizar o modo e salvar no AsyncStorage
+  // 🔥 Função para atualizar o modo e salvar no AsyncStorage
   const setMode = async (newMode: ColorMode) => {
     try {
       setModeState(newMode);
-      await AsyncStorage.setItem('theme.mode', newMode);
+      if (userId) {
+        // Salva o tema vinculado ao usuário
+        await AsyncStorage.setItem(`theme.mode.${userId}`, newMode);
+      } else {
+        // Se não tiver usuário, salva como tema geral (fallback)
+        await AsyncStorage.setItem('theme.mode', newMode);
+      }
     } catch (error) {
       console.error('Erro ao salvar tema:', error);
     }
@@ -57,7 +74,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return t;
   }, [mode]);
 
-  return <Ctx.Provider value={{ theme, setMode, isLoading }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ theme, setMode, isLoading, setUserId }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useTheme() {
@@ -66,5 +87,4 @@ export function useTheme() {
   return ctx;
 }
 
-// Alias opcional para evitar colisão com outros hooks chamados useTheme
 export const useAppTheme = useTheme;
