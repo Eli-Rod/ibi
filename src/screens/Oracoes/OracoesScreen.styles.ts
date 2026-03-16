@@ -1,6 +1,7 @@
 import { Platform, StyleSheet } from 'react-native';
 import type { Theme as AppTheme } from '../../theme/tokens';
 
+
 export const createStyles = (theme: AppTheme) =>
   StyleSheet.create({
     container: {
@@ -887,18 +888,113 @@ export const createStyles = (theme: AppTheme) =>
       marginBottom: theme.spacing(2),
     },
 
+    // commentsModalContent: {
+    //   backgroundColor: theme.colors.card,
+    //   borderTopLeftRadius: 24,
+    //   borderTopRightRadius: 24,
+    //   paddingHorizontal: theme.spacing(3),
+    //   paddingTop: theme.spacing(3),
+    //   paddingBottom: Platform.select({
+    //     ios: getBottomSpace ? getBottomSpace() + theme.spacing(2) : 34,
+    //     android: theme.spacing(3),
+    //     default: theme.spacing(3),
+    //   }),
+    //   width: '100%',
+    //   height: '80%', // Aumentei para 80% para garantir cobertura total
+    //   zIndex: 10,
+    //   position: 'absolute',
+    //   bottom: 0,
+    //   left: 0,
+    //   right: 0,
+    //   // Sombra para dar profundidade
+    //   shadowColor: '#000',
+    //   shadowOffset: { width: 0, height: -3 },
+    //   shadowOpacity: 0.1,
+    //   shadowRadius: 5,
+    //   elevation: 10,
+    // },
+
+    // prayersListModalFull: {
+    //   backgroundColor: theme.colors.card,
+    //   borderTopLeftRadius: 24,
+    //   borderTopRightRadius: 24,
+    //   paddingHorizontal: theme.spacing(3),
+    //   paddingTop: theme.spacing(3),
+    //   paddingBottom: Platform.select({
+    //     ios: getBottomSpace ? getBottomSpace() + theme.spacing(2) : 34,
+    //     android: theme.spacing(3),
+    //     default: theme.spacing(3),
+    //   }),
+    //   width: '100%',
+    //   height: '80%',
+    //   zIndex: 10,
+    //   position: 'absolute',
+    //   bottom: 0,
+    //   left: 0,
+    //   right: 0,
+    //   // Sombra para dar profundidade
+    //   shadowColor: '#000',
+    //   shadowOffset: { width: 0, height: -3 },
+    //   shadowOpacity: 0.1,
+    //   shadowRadius: 5,
+    //   elevation: 10,
+    // },
     commentsModalContent: {
       backgroundColor: theme.colors.card,
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
-      padding: theme.spacing(3),
+      paddingHorizontal: theme.spacing(3),
+      paddingTop: theme.spacing(3),
+      paddingBottom: 0,
       width: '100%',
-      maxHeight: '80%',
+      height: '85%', // Altura fixa, o SafeArea vai ajustar
       zIndex: 10,
       position: 'absolute',
       bottom: 0,
       left: 0,
       right: 0,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 5,
+      elevation: 10,
+    },
+
+    prayersListModalFull: {
+      backgroundColor: theme.colors.card,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingHorizontal: theme.spacing(3),
+      paddingTop: theme.spacing(3),
+      paddingBottom: 0,
+      width: '100%',
+      height: '85%',
+      zIndex: 10,
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 5,
+      elevation: 10,
+    },
+
+    modalHeaderWithTitle: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start', // Mudado de 'center' para 'flex-start'
+      marginBottom: theme.spacing(2),
+      gap: theme.spacing(2),
+    },
+
+    modalTitleWithBreak: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: theme.colors.text,
+      flex: 1, // Ocupa o espaço disponível
+      flexWrap: 'wrap', // Permite quebra de linha
     },
 
     commentsList: {

@@ -14,9 +14,10 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { PageHeader } from '../../components/PageHeader'; // NOVO COMPONENTE
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PageHeader } from '../../components/PageHeader';
 import { ThemedText } from '../../components/Themed';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../services/supabase';
@@ -150,6 +151,8 @@ export default function OracoesScreen() {
   const styles = useMemo(() => createStyles(theme), [theme]);
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets(); // ADICIONE ESTA LINHA
+
 
   // Estados
   const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
@@ -1591,18 +1594,29 @@ export default function OracoesScreen() {
         />
       )}
 
-      {/* Modal de lista de quem orou */}
+      {/* Modal de lista de quem orou - CORRIGIDO */}
       <Modal
         visible={showPrayersList}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowPrayersList(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowPrayersList(false)}>
-          <Pressable style={styles.prayersListModal} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalOverlayTouch}
+            onPress={() => setShowPrayersList(false)}
+          />
+          <View style={[
+            styles.prayersListModalFull,
+            { paddingBottom: insets.bottom + 16 } // Padding dinâmico baseado no dispositivo
+          ]}>
             <View style={styles.modalHeader}>
               <ThemedText style={styles.modalTitle}>Pessoas que oraram</ThemedText>
-              <Pressable onPress={() => setShowPrayersList(false)}>
+              <Pressable
+                onPress={() => setShowPrayersList(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ padding: 4 }}
+              >
                 <Ionicons name="close" size={24} color={theme.colors.text} />
               </Pressable>
             </View>
@@ -1627,7 +1641,10 @@ export default function OracoesScreen() {
                     <ThemedText style={styles.prayersListName}>{item.author_name}</ThemedText>
                   </View>
                 )}
-                contentContainerStyle={{ paddingVertical: 8 }}
+                contentContainerStyle={{
+                  paddingVertical: 8,
+                  paddingBottom: 16
+                }}
                 showsVerticalScrollIndicator={true}
               />
             ) : (
@@ -1638,11 +1655,11 @@ export default function OracoesScreen() {
                 </ThemedText>
               </View>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
-      {/* Modal de comentários */}
+      {/* Modal de comentários - CORRIGIDO */}
       <Modal
         visible={showCommentsModal}
         transparent
@@ -1650,13 +1667,23 @@ export default function OracoesScreen() {
         onRequestClose={() => setShowCommentsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalOverlayTouch} onPress={() => setShowCommentsModal(false)} />
-          <View style={styles.commentsModalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>
-                Comentários - {selectedPrayer?.title}
+          <Pressable
+            style={styles.modalOverlayTouch}
+            onPress={() => setShowCommentsModal(false)}
+          />
+          <View style={[
+            styles.commentsModalContent,
+            { paddingBottom: insets.bottom + 16 } // Padding dinâmico baseado no dispositivo
+          ]}>
+            <View style={styles.modalHeaderWithTitle}>
+              <ThemedText style={styles.modalTitleWithBreak} numberOfLines={2}>
+                {`Comentários - ${selectedPrayer?.title || ''}`}
               </ThemedText>
-              <Pressable onPress={() => setShowCommentsModal(false)}>
+              <Pressable
+                onPress={() => setShowCommentsModal(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ padding: 4 }}
+              >
                 <Ionicons name="close" size={24} color={theme.colors.text} />
               </Pressable>
             </View>
@@ -1696,7 +1723,10 @@ export default function OracoesScreen() {
                     </ThemedText>
                   </View>
                 }
-                contentContainerStyle={styles.commentsListContent}
+                contentContainerStyle={[
+                  styles.commentsListContent,
+                  { paddingBottom: 16 }
+                ]}
                 showsVerticalScrollIndicator={true}
                 style={styles.commentsList}
               />
