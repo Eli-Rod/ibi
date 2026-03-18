@@ -132,7 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
 
       // 🔥 PRIMEIRO: Limpar qualquer sessão local antes de tentar buscar
-      await supabase.auth.signOut({ scope: 'local' });
+      // await supabase.auth.signOut({ scope: 'local' });
 
       // Buscar sessão atual
       const { data: { session }, error } = await supabase.auth.getSession();

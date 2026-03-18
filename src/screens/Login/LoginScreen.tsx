@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,25 @@ export default function LoginScreen() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  const checkSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Usuário já está logado, redirecionar
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
+      }
+    } catch (error) {
+      console.log('Erro ao verificar sessão:', error);
+    }
+  };
+
   async function handleLogin() {
     Keyboard.dismiss();
     if (!email || !password) {
@@ -61,7 +80,7 @@ export default function LoginScreen() {
     // 🔥 Após login bem-sucedido, verificar se a senha mudou
     try {
       const lastPassword = await AsyncStorage.getItem(`@last_password_${email}`);
-      
+
       if (lastPassword && lastPassword !== password) {
         // Senha mudou!
         Alert.alert(
@@ -69,8 +88,8 @@ export default function LoginScreen() {
           'Detectamos que sua senha foi alterada. Deseja atualizar nos seus dispositivos?',
           [
             { text: 'Agora não', style: 'cancel' },
-            { 
-              text: 'Atualizar', 
+            {
+              text: 'Atualizar',
               onPress: async () => {
                 await AsyncStorage.setItem(`@last_password_${email}`, password);
                 Alert.alert('Sucesso', 'Senha atualizada com sucesso!');

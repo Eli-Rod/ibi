@@ -1,6 +1,7 @@
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppContainer } from './src/components/AppContainer';
 import { ProfessionalSplashScreen } from './src/components/ProfessionalSplashScreen';
@@ -13,6 +14,24 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 // Manter splash nativa visível até nossa animação começar
 SplashScreen.preventAutoHideAsync();
 
+// Componente que aplica o KeyboardAvoidingView globalmente
+function KeyboardAvoidingWrapper({ children }: { children: React.ReactNode }) {
+  const { theme } = useTheme();
+  
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+      {/* SafeAreaView as child to ensure content respects safe areas */}
+      <SafeAreaView style={{ flex: 1 }}>
+        {children}
+      </SafeAreaView>
+    </KeyboardAvoidingView>
+  );
+}
+
 function AppWithTheme() {
   const { theme } = useTheme();
 
@@ -20,7 +39,9 @@ function AppWithTheme() {
     <AppContainer>
       <AuthProvider>
         <LockProvider>
-          <RootNavigator />
+          <KeyboardAvoidingWrapper>
+            <RootNavigator />
+          </KeyboardAvoidingWrapper>
         </LockProvider>
       </AuthProvider>
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
