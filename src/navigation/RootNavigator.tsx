@@ -33,6 +33,7 @@ import { OnboardingProvider, useOnboarding } from '../contexts/OnboardingContext
 import AdminDevScreen from '../screens/AdminDev/AdminDevScreen';
 import AoVivoScreen from '../screens/AoVivo/AoVivoScreen';
 import CelulasScreen from '../screens/Celulas/CelulasScreen';
+import ComunicadosScreen from '../screens/Comunicados/ComunicadosScreen';
 import ContribuicoesScreen from '../screens/Contribuicoes/ContribuicoesScreen';
 import EditoriaisScreen from '../screens/Editoriais/EditoriaisScreen';
 import EventosScreen from '../screens/Eventos/EventosScreen';
@@ -46,7 +47,6 @@ import LoginScreen from '../screens/Login/LoginScreen';
 import RegisterScreen from '../screens/Login/Register/RegisterScreen';
 import MensagensScreen from '../screens/Mensagem/MensagensScreen';
 import MinisteriosScreen from '../screens/Ministerios/MinisteriosScreen';
-import NoticiasScreen from '../screens/Noticias/NoticiasScreen';
 import OracoesScreen from '../screens/Oracoes/OracoesScreen';
 import PlaylistLouvorScreen from '../screens/Playlist/PlaylistLouvorScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
@@ -61,7 +61,7 @@ type DrawerParamList = {
   Igreja: undefined;
   'Ministérios': undefined;
   'Células': undefined;
-  'Notícias': undefined;
+  'Comunicados': undefined;
   'Mensagens': undefined;
   'Ao Vivo': undefined;
   'Contribuições': undefined;
@@ -146,7 +146,7 @@ function AuthenticatedApp() {
         <Drawer.Screen name="Igreja" component={IgrejaScreen} />
         <Drawer.Screen name="Ministérios" component={MinisteriosScreen} />
         <Drawer.Screen name="Células" component={CelulasScreen} />
-        <Drawer.Screen name="Notícias" component={NoticiasScreen} />
+        <Drawer.Screen name="Comunicados" component={ComunicadosScreen} />
         <Drawer.Screen name="Mensagens" component={MensagensScreen} />
         <Drawer.Screen name="Ao Vivo" component={AoVivoScreen} />
         <Drawer.Screen name="Contribuições" component={ContribuicoesScreen} />
@@ -315,7 +315,7 @@ function CustomDrawer(props: DrawerContentComponentProps) {
     { key: 'Igreja', label: 'Igreja', icon: 'business-outline' },
     { key: 'Ministérios', label: 'Ministérios', icon: 'list-outline' },
     { key: 'Células', label: 'Células', icon: 'people-outline' },
-    { key: 'Notícias', label: 'Notícias', icon: 'newspaper-outline' },
+    { key: 'Comunicados', label: 'Comunicados', icon: 'newspaper-outline' },
     { key: 'Mensagens', label: 'Mensagens', icon: 'videocam-outline' },
     { key: 'Ao Vivo', label: 'Ao Vivo', icon: 'radio-outline' },
     { key: 'Contribuições', label: 'Contribuições', icon: 'card-outline' },
