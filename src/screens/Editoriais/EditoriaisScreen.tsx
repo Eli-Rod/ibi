@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 
 import { useTheme } from '../../theme/ThemeProvider';
 

@@ -5,7 +5,7 @@ import React from 'react';
 import { FlatList, Image, Pressable, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 import { ThemedCard, ThemedText, ThemedView } from '../../components/Themed';
 import { MESSAGES_CONFIG } from '../../config/messages';
 import { useTheme } from '../../theme/ThemeProvider';

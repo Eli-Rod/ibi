@@ -1,5 +1,7 @@
-import { Platform, StyleSheet } from 'react-native';
+import { Dimensions, Platform, StyleSheet } from 'react-native';
 import type { Theme as AppTheme } from '../../theme/tokens';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const createStyles = (theme: AppTheme) =>
   StyleSheet.create({
@@ -14,26 +16,26 @@ export const createStyles = (theme: AppTheme) =>
       paddingBottom: theme.spacing(2),
     },
 
-    // Header fixo
-    fixedHeader: {
-      marginBottom: theme.spacing(3),
+    // Carrossel
+    carrosselContainer: {
+      marginVertical: theme.spacing(2),
+      height: 280,
     },
 
-    // Banner em destaque
-    featuredContainer: {
-      marginBottom: theme.spacing(3),
+    carrosselContentContainer: {
+      paddingHorizontal: (SCREEN_WIDTH - SCREEN_WIDTH * 0.98) / 2,
     },
 
-    featuredCard: {
-      width: '100%',
-      height: 200,
-      borderRadius: theme.radius,
+    carrosselCard: {
+      height: 260,
+      borderRadius: theme.radius * 1.5,
       overflow: 'hidden',
+      backgroundColor: theme.colors.card,
       ...Platform.select({
         ios: {
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
+          shadowOpacity: 0.3,
           shadowRadius: 8,
         },
         android: {
@@ -42,87 +44,148 @@ export const createStyles = (theme: AppTheme) =>
       }),
     },
 
-    featuredImage: {
+    carrosselImage: {
       width: '100%',
       height: '100%',
       position: 'absolute',
     },
 
-    featuredOverlay: {
+    carrosselOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.4)',
     },
 
-    featuredContent: {
+    carrosselContent: {
       flex: 1,
       justifyContent: 'flex-end',
       padding: theme.spacing(2.5),
+      zIndex: 2,
     },
 
-    featuredBadge: {
-      backgroundColor: theme.colors.primary,
-      alignSelf: 'flex-start',
+    carrosselBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
       paddingHorizontal: theme.spacing(1.5),
       paddingVertical: theme.spacing(0.5),
       borderRadius: 4,
-      marginBottom: theme.spacing(1.5),
+      alignSelf: 'flex-start',
     },
 
-    featuredBadgeText: {
+    carrosselBadgeText: {
       color: '#fff',
-      fontSize: 12,
+      fontSize: 10,
       fontWeight: '700',
       textTransform: 'uppercase',
     },
 
-    featuredTitle: {
-      fontSize: 24,
+    carrosselTitle: {
+      fontSize: 18,
       fontWeight: '800',
       color: '#fff',
       marginBottom: theme.spacing(1),
-      textShadowColor: 'rgba(0,0,0,0.3)',
+      textShadowColor: 'rgba(0,0,0,0.5)',
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 4,
     },
 
-    featuredDescription: {
-      fontSize: 14,
-      color: 'rgba(255,255,255,0.9)',
-      marginBottom: theme.spacing(1.5),
-      lineHeight: 20,
-    },
-
-    featuredMeta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: theme.spacing(1.5),
-    },
-
-    featuredDate: {
+    carrosselDescription: {
       fontSize: 12,
-      color: 'rgba(255,255,255,0.8)',
+      color: 'rgba(255,255,255,0.9)',
+      lineHeight: 16,
+      marginTop: 4,
     },
 
-    // Lista de comunicados
-    listContainer: {
+    paginationContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: theme.spacing(2),
+      gap: 8,
+    },
+
+    paginationDot: {
+      height: 8,
+      borderRadius: 4,
+      marginHorizontal: 2,
+    },
+
+    // Filtros
+    filtersContainer: {
+      flexDirection: 'row',
+      gap: theme.spacing(1.5),
+      paddingVertical: theme.spacing(2),
+      marginBottom: theme.spacing(1),
+    },
+
+    filterChip: {
+      paddingHorizontal: theme.spacing(2),
+      paddingVertical: theme.spacing(1),
+      borderRadius: 20,
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginRight: theme.spacing(1),
+    },
+
+    filterChipActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+
+    filterChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+
+    filterChipTextActive: {
+      color: '#fff',
+    },
+
+    // Timeline
+    timelineContainer: {
       marginTop: theme.spacing(2),
     },
 
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: theme.colors.text,
+    timelineCard: {
+      flexDirection: 'row',
       marginBottom: theme.spacing(2),
     },
 
-    // Card de comunicado
-    comunicadoCard: {
+    timelineLeft: {
+      width: 40,
+      alignItems: 'center',
+      position: 'relative',
+    },
+
+    timelineDot: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      marginTop: 8,
+      zIndex: 2,
+      borderWidth: 2,
+      borderColor: theme.colors.background,
+    },
+
+    timelineLine: {
+      width: 2,
+      flex: 1,
+      backgroundColor: theme.colors.border,
+      position: 'absolute',
+      top: 24,
+      bottom: -16,
+      left: 19,
+    },
+
+    timelineRight: {
+      flex: 1,
       backgroundColor: theme.colors.card,
       borderRadius: theme.radius,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing(2),
       overflow: 'hidden',
+      marginBottom: theme.spacing(1),
       ...Platform.select({
         ios: {
           shadowColor: '#000',
@@ -136,23 +199,82 @@ export const createStyles = (theme: AppTheme) =>
       }),
     },
 
-    cardImage: {
+    timelineImage: {
       width: '100%',
-      height: 180,
+      height: 120,
       backgroundColor: theme.colors.primary + '20',
     },
 
-    cardContent: {
+    timelineContent: {
       padding: theme.spacing(2),
     },
 
-    cardHeader: {
+    timelineBadge: {
+      paddingHorizontal: theme.spacing(1.5),
+      paddingVertical: 4,
+      borderRadius: 4,
+      alignSelf: 'flex-start',
+    },
+
+    timelineBadgeText: {
+      color: '#fff',
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+
+    timelineDateBadge: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: theme.spacing(1),
+      paddingVertical: 4,
+      borderRadius: 4,
+      backgroundColor: theme.colors.primary + '20',
+    },
+
+    timelineDateText: {
+      fontSize: 11,
+      color: theme.colors.primary,
+      fontWeight: '600',
+    },
+
+    timelineTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.colors.text,
       marginBottom: theme.spacing(1),
     },
 
+    timelineDescription: {
+      fontSize: 13,
+      color: theme.colors.muted,
+      lineHeight: 18,
+      marginBottom: theme.spacing(1.5),
+    },
+
+    timelineFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing(2),
+      marginTop: theme.spacing(1),
+      paddingTop: theme.spacing(1),
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+
+    timelineMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+
+    timelineMetaText: {
+      fontSize: 11,
+      color: theme.colors.muted,
+    },
+
+    // Badge fixado/destaque
     pinnedBadge: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -169,61 +291,7 @@ export const createStyles = (theme: AppTheme) =>
       fontWeight: '600',
     },
 
-    cardTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: theme.colors.text,
-      marginBottom: theme.spacing(1),
-      flex: 1,
-    },
-
-    cardDescription: {
-      fontSize: 14,
-      color: theme.colors.muted,
-      lineHeight: 20,
-      marginBottom: theme.spacing(1.5),
-    },
-
-    cardMeta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: theme.spacing(1),
-      paddingTop: theme.spacing(1),
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.border,
-    },
-
-    metaLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: theme.spacing(1.5),
-    },
-
-    metaItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-
-    metaText: {
-      fontSize: 12,
-      color: theme.colors.muted,
-    },
-
-    readMoreButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-
-    readMoreText: {
-      fontSize: 13,
-      color: theme.colors.primary,
-      fontWeight: '600',
-    },
-
-    // Modal de detalhes
+    // Modal
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
@@ -302,7 +370,13 @@ export const createStyles = (theme: AppTheme) =>
       color: theme.colors.muted,
     },
 
-    // Estado vazio
+    metaItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+
+    // Estados vazios e loading
     emptyState: {
       padding: theme.spacing(5),
       alignItems: 'center',
@@ -316,7 +390,13 @@ export const createStyles = (theme: AppTheme) =>
       textAlign: 'center',
     },
 
-    // Loading skeleton
+    loadingContainer: {
+      padding: theme.spacing(5),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    // Skeleton
     skeletonCard: {
       backgroundColor: theme.colors.card,
       borderRadius: theme.radius,
@@ -343,15 +423,11 @@ export const createStyles = (theme: AppTheme) =>
       borderRadius: 6,
     },
 
-    loadingContainer: {
-      padding: theme.spacing(5),
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    tipoBadge: {
-      paddingHorizontal: theme.spacing(1),
-      paddingVertical: theme.spacing(0.5),
-      borderRadius: 4,
-      alignSelf: 'flex-start',
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.colors.text,
+      marginBottom: theme.spacing(2),
+      marginTop: theme.spacing(2),
     },
   });

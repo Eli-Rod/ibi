@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Dimensions,
   FlatList,
   Image,
   Modal,
@@ -15,13 +17,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 import { ThemedText } from '../../components/Themed';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../theme/ThemeProvider';
 import { ComunicadoComAutor } from '../../types/comunicados';
 import { createStyles } from './ComunicadosScreen.styles';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Componente de loading skeleton
 const ComunicadoSkeleton = () => {
@@ -61,6 +65,149 @@ const ComunicadoSkeleton = () => {
   );
 };
 
+// Componente do Carrossel - VERSÃO SIMPLES E FUNCIONAL
+const CarrosselDestaques = ({
+  destaques,
+  onItemPress
+}: {
+  destaques: ComunicadoComAutor[];
+  onItemPress: (item: ComunicadoComAutor) => void;
+}) => {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const flatListRef = useRef<FlatList>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const getTipoColor = (tipo: string) => {
+    switch (tipo) {
+      case 'evento': return '#10B981';
+      case 'noticia': return '#3B82F6';
+      case 'aviso': return '#F59E0B';
+      default: return '#6B7280';
+    }
+  };
+
+  const formatEventDate = (dateString: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+    });
+  };
+
+  const renderItem = ({ item, index }: { item: ComunicadoComAutor; index: number }) => {
+    const isActive = index === currentIndex;
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => onItemPress(item)}
+        style={[
+          styles.carrosselCard,
+          {
+            width: SCREEN_WIDTH * 0.85,
+            marginHorizontal: 8,
+            transform: [{ scale: isActive ? 1 : 0.92 }],
+          },
+        ]}
+      >
+        {item.imagem_url ? (
+          <Image source={{ uri: item.imagem_url }} style={styles.carrosselImage} />
+        ) : (
+          <View style={[styles.carrosselImage, { backgroundColor: theme.colors.primary + '40' }]} />
+        )}
+
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.carrosselOverlay}
+        />
+
+        <View style={styles.carrosselContent}>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={[styles.carrosselBadge, { backgroundColor: getTipoColor(item.tipo) }]}>
+              <ThemedText style={styles.carrosselBadgeText}>
+                {item.tipo.toUpperCase()}
+              </ThemedText>
+            </View>
+
+            {item.data_evento && (
+              <View style={[styles.carrosselBadge, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                <Ionicons name="calendar" size={12} color="#fff" />
+                <ThemedText style={styles.carrosselBadgeText}>
+                  {formatEventDate(item.data_evento)}
+                </ThemedText>
+              </View>
+            )}
+          </View>
+
+          <ThemedText style={styles.carrosselTitle} numberOfLines={2}>
+            {item.titulo}
+          </ThemedText>
+
+          {isActive && item.corpo && (
+            <ThemedText style={styles.carrosselDescription} numberOfLines={2}>
+              {item.corpo.replace(/<[^>]*>/g, '').substring(0, 80)}...
+            </ThemedText>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const itemWidth = SCREEN_WIDTH * 0.85 + 16; // largura + margem
+
+  return (
+    <View style={styles.carrosselContainer}>
+      <FlatList
+        ref={flatListRef}
+        data={destaques}
+        renderItem={renderItem}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={itemWidth}
+        decelerationRate="fast"
+        snapToAlignment="center"
+        contentContainerStyle={styles.carrosselContentContainer}
+        onMomentumScrollEnd={(event) => {
+          const offsetX = event.nativeEvent.contentOffset.x;
+          const newIndex = Math.round(offsetX / itemWidth);
+          if (newIndex !== currentIndex && newIndex >= 0 && newIndex < destaques.length) {
+            setCurrentIndex(newIndex);
+          }
+        }}
+        getItemLayout={(data, index) => ({
+          length: itemWidth,
+          offset: itemWidth * index,
+          index,
+        })}
+      />
+
+      {destaques.length > 1 && (
+        <View style={styles.paginationContainer}>
+          {destaques.map((_, index) => (
+            <TouchableOpacity
+              key={index}
+              onPress={() => {
+                flatListRef.current?.scrollToIndex({ index, animated: true });
+                setCurrentIndex(index);
+              }}
+              style={[
+                styles.paginationDot,
+                {
+                  backgroundColor: index === currentIndex ? theme.colors.primary : 'rgba(255,255,255,0.4)',
+                  width: index === currentIndex ? 24 : 8,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
 export default function ComunicadosScreen() {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -73,6 +220,7 @@ export default function ComunicadosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoComAutor | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<string>('todos');
 
   // Buscar comunicados
   const fetchComunicados = async () => {
@@ -82,15 +230,14 @@ export default function ComunicadosScreen() {
       const { data, error } = await supabase
         .from('comunicados')
         .select('*')
-        .lte('publicar_em', agora) // Já pode publicar
-        .or(`data_expiracao.is.null,data_expiracao.gt.${agora}`) // Não expirou OU sem expiração
-        .order('destaque', { ascending: false }) // Destaques primeiro
-        .order('fixado', { ascending: false }) // Depois fixados
-        .order('publicar_em', { ascending: false }); // Por fim, mais recentes
+        .lte('publicar_em', agora)
+        .or(`data_expiracao.is.null,data_expiracao.gt.${agora}`)
+        .order('destaque', { ascending: false })
+        .order('fixado', { ascending: false })
+        .order('publicar_em', { ascending: false });
 
       if (error) throw error;
 
-      // Buscar nomes dos autores (opcional)
       const comunicadosComAutores = await Promise.all(
         (data || []).map(async (item) => {
           if (item.criado_por) {
@@ -134,19 +281,14 @@ export default function ComunicadosScreen() {
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) {
-      return 'Hoje';
-    } else if (diffDays === 1) {
-      return 'Ontem';
-    } else if (diffDays < 7) {
-      return `${diffDays} dias atrás`;
-    } else {
-      return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    }
+    if (diffDays === 0) return 'Hoje';
+    if (diffDays === 1) return 'Ontem';
+    if (diffDays < 7) return `${diffDays} dias atrás`;
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   };
 
   // Formatar data do evento
@@ -164,10 +306,10 @@ export default function ComunicadosScreen() {
   // Cores e labels por tipo
   const getTipoColor = (tipo: string) => {
     switch (tipo) {
-      case 'evento': return '#10B981'; // verde
-      case 'noticia': return '#3B82F6'; // azul
-      case 'aviso': return '#F59E0B'; // laranja
-      default: return '#6B7280'; // cinza
+      case 'evento': return '#10B981';
+      case 'noticia': return '#3B82F6';
+      case 'aviso': return '#F59E0B';
+      default: return '#6B7280';
     }
   };
 
@@ -180,113 +322,26 @@ export default function ComunicadosScreen() {
     }
   };
 
-  // ---------- LÓGICA CORRIGIDA PARA DESTAQUES ----------
-  // Separar comunicados por categoria
-  const comunicadosDestaque = comunicados.filter(c => c.destaque === true);
-  const comunicadosFixados = comunicados.filter(c => !c.destaque && c.fixado === true);
-  const comunicadosNormais = comunicados.filter(c => !c.destaque && !c.fixado);
-
-  // Pega o primeiro destaque para o banner (ou o primeiro fixado se não houver destaques)
-  const comunicadoDestaque = comunicadosDestaque[0] || comunicadosFixados[0] || null;
-
-  // Lista principal: inclui TODOS os comunicados em ordem hierárquica
-  const outrosComunicados = [
-    ...comunicadosDestaque.slice(1), // Outros destaques (além do primeiro)
-    ...comunicadosFixados,            // Todos os fixados
-    ...comunicadosNormais             // Todos os normais
+  // Filtros de categoria
+  const filters = [
+    { key: 'todos', label: 'Todos' },
+    { key: 'evento', label: 'Eventos', color: '#10B981' },
+    { key: 'noticia', label: 'Notícias', color: '#3B82F6' },
+    { key: 'aviso', label: 'Avisos', color: '#F59E0B' },
   ];
-  // -----------------------------------------------------
 
-  // Renderizar card de comunicado
-  const renderComunicadoCard = ({ item }: { item: ComunicadoComAutor }) => (
-    <TouchableOpacity
-      style={styles.comunicadoCard}
-      activeOpacity={0.7}
-      onPress={() => {
-        setSelectedComunicado(item);
-        setModalVisible(true);
-      }}
-    >
-      {item.imagem_url && (
-        <Image source={{ uri: item.imagem_url }} style={styles.cardImage} />
-      )}
+  // Separar comunicados
+  const comunicadosDestaque = comunicados.filter(c => c.destaque === true);
+  const outrosComunicados = comunicados.filter(c => !c.destaque);
 
-      <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {item.destaque && (
-              <View style={[styles.pinnedBadge, { backgroundColor: theme.colors.primary }]}>
-                <Ionicons name="star" size={12} color="#fff" />
-                <ThemedText style={[styles.pinnedText, { color: '#fff' }]}>Destaque</ThemedText>
-              </View>
-            )}
-            {item.fixado && !item.destaque && (
-              <View style={styles.pinnedBadge}>
-                <Ionicons name="pin" size={12} color={theme.colors.primary} />
-                <ThemedText style={styles.pinnedText}>Fixado</ThemedText>
-              </View>
-            )}
-            <View style={[styles.pinnedBadge, { backgroundColor: getTipoColor(item.tipo) }]}>
-              <ThemedText style={[styles.pinnedText, { color: '#fff' }]}>
-                {getTipoLabel(item.tipo)}
-              </ThemedText>
-            </View>
-          </View>
-        </View>
-
-        <ThemedText style={styles.cardTitle} numberOfLines={2}>
-          {item.titulo}
-        </ThemedText>
-
-        {item.corpo && (
-          <ThemedText style={styles.cardDescription} numberOfLines={3}>
-            {item.corpo.replace(/<[^>]*>/g, '').substring(0, 120)}...
-          </ThemedText>
-        )}
-
-        <View style={styles.cardMeta}>
-          <View style={styles.metaLeft}>
-            <View style={styles.metaItem}>
-              <Ionicons name="calendar-outline" size={14} color={theme.colors.muted} />
-              <ThemedText style={styles.metaText}>
-                {formatRelativeDate(item.publicar_em)}
-              </ThemedText>
-            </View>
-
-            {item.data_evento && (
-              <View style={styles.metaItem}>
-                <Ionicons name="calendar" size={14} color={theme.colors.primary} />
-                <ThemedText style={[styles.metaText, { color: theme.colors.primary }]}>
-                  {formatEventDate(item.data_evento)}
-                </ThemedText>
-              </View>
-            )}
-
-            {item.autor_nome && (
-              <View style={styles.metaItem}>
-                <Ionicons name="person-outline" size={14} color={theme.colors.muted} />
-                <ThemedText style={styles.metaText} numberOfLines={1}>
-                  {item.autor_nome}
-                </ThemedText>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.readMoreButton}>
-            <ThemedText style={styles.readMoreText}>Ler mais</ThemedText>
-            <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  // Filtrar por tipo
+  const comunicadosFiltrados = selectedFilter === 'todos'
+    ? outrosComunicados
+    : outrosComunicados.filter(c => c.tipo === selectedFilter);
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={outrosComunicados}
-        renderItem={renderComunicadoCard}
-        keyExtractor={item => item.id}
+      <ScrollView
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 16 }
@@ -299,77 +354,147 @@ export default function ComunicadosScreen() {
             tintColor={theme.colors.primary}
           />
         }
-        ListHeaderComponent={
-          <>
-            <PageHeader
-              title="Comunicados"
-              subtitle="Fique por dentro das últimas novidades da igreja"
-              icon="newspaper-outline"
-              badge={comunicados.length}
-            />
+        showsVerticalScrollIndicator={false}
+      >
+        <PageHeader
+          title="Comunicados"
+          subtitle="Fique por dentro das últimas novidades da igreja"
+          icon="newspaper-outline"
+          badge={comunicados.length}
+        />
 
-            {/* Banner em destaque */}
-            {comunicadoDestaque && (
-              <View style={styles.featuredContainer}>
-                <TouchableOpacity
-                  style={styles.featuredCard}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    setSelectedComunicado(comunicadoDestaque);
-                    setModalVisible(true);
-                  }}
+        {/* Carrossel de destaques */}
+        {comunicadosDestaque.length > 0 && (
+          <CarrosselDestaques
+            destaques={comunicadosDestaque}
+            onItemPress={(item) => {
+              setSelectedComunicado(item);
+              setModalVisible(true);
+            }}
+          />
+        )}
+
+        {/* Filtros de categoria */}
+        {comunicados.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersContainer}
+          >
+            {filters.map(filter => (
+              <TouchableOpacity
+                key={filter.key}
+                style={[
+                  styles.filterChip,
+                  selectedFilter === filter.key && styles.filterChipActive,
+                  selectedFilter === filter.key && filter.color && { backgroundColor: filter.color }
+                ]}
+                onPress={() => setSelectedFilter(filter.key)}
+              >
+                <ThemedText
+                  style={[
+                    styles.filterChipText,
+                    selectedFilter === filter.key && styles.filterChipTextActive
+                  ]}
                 >
-                  {comunicadoDestaque.imagem_url ? (
-                    <Image source={{ uri: comunicadoDestaque.imagem_url }} style={styles.featuredImage} />
-                  ) : (
-                    <View style={[styles.featuredImage, { backgroundColor: theme.colors.primary + '40' }]} />
+                  {filter.label}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Lista de comunicados (formato timeline) */}
+        {comunicadosFiltrados.length > 0 ? (
+          <View style={styles.timelineContainer}>
+            {comunicadosFiltrados.map((item, index) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.timelineCard}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setSelectedComunicado(item);
+                  setModalVisible(true);
+                }}
+              >
+                {/* Linha do tempo */}
+                <View style={styles.timelineLeft}>
+                  <View style={[styles.timelineDot, { backgroundColor: getTipoColor(item.tipo) }]} />
+                  {index < comunicadosFiltrados.length - 1 && (
+                    <View style={styles.timelineLine} />
                   )}
-                  <View style={styles.featuredOverlay} />
-                  <View style={styles.featuredContent}>
-                    <View style={[styles.featuredBadge, { backgroundColor: getTipoColor(comunicadoDestaque.tipo) }]}>
-                      <ThemedText style={styles.featuredBadgeText}>
-                        {comunicadoDestaque.destaque ? 'DESTAQUE' : getTipoLabel(comunicadoDestaque.tipo)}
-                      </ThemedText>
+                </View>
+
+                {/* Conteúdo do card */}
+                <View style={styles.timelineRight}>
+                  {item.imagem_url && (
+                    <Image source={{ uri: item.imagem_url }} style={styles.timelineImage} />
+                  )}
+
+                  <View style={styles.timelineContent}>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <View style={[styles.timelineBadge, { backgroundColor: getTipoColor(item.tipo) }]}>
+                        <ThemedText style={styles.timelineBadgeText}>
+                          {getTipoLabel(item.tipo)}
+                        </ThemedText>
+                      </View>
+
+                      {item.data_evento && (
+                        <View style={styles.timelineDateBadge}>
+                          <Ionicons name="calendar" size={12} color={theme.colors.primary} />
+                          <ThemedText style={styles.timelineDateText}>
+                            {new Date(item.data_evento).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit'
+                            })}
+                          </ThemedText>
+                        </View>
+                      )}
                     </View>
-                    <ThemedText style={styles.featuredTitle} numberOfLines={2}>
-                      {comunicadoDestaque.titulo}
+
+                    <ThemedText style={styles.timelineTitle}>
+                      {item.titulo}
                     </ThemedText>
-                    {comunicadoDestaque.corpo && (
-                      <ThemedText style={styles.featuredDescription} numberOfLines={2}>
-                        {comunicadoDestaque.corpo.replace(/<[^>]*>/g, '').substring(0, 100)}...
+
+                    {item.corpo && (
+                      <ThemedText style={styles.timelineDescription} numberOfLines={2}>
+                        {item.corpo.replace(/<[^>]*>/g, '').substring(0, 100)}...
                       </ThemedText>
                     )}
-                    <View style={styles.featuredMeta}>
-                      <Ionicons name="calendar" size={14} color="#fff" />
-                      <ThemedText style={styles.featuredDate}>
-                        {comunicadoDestaque.data_evento
-                          ? formatEventDate(comunicadoDestaque.data_evento)
-                          : formatRelativeDate(comunicadoDestaque.publicar_em)}
-                      </ThemedText>
+
+                    <View style={styles.timelineFooter}>
+                      <View style={styles.timelineMeta}>
+                        <Ionicons name="time-outline" size={12} color={theme.colors.muted} />
+                        <ThemedText style={styles.timelineMetaText}>
+                          {formatRelativeDate(item.publicar_em)}
+                        </ThemedText>
+                      </View>
+
+                      {item.autor_nome && (
+                        <View style={styles.timelineMeta}>
+                          <Ionicons name="person-outline" size={12} color={theme.colors.muted} />
+                          <ThemedText style={styles.timelineMetaText}>
+                            {item.autor_nome}
+                          </ThemedText>
+                        </View>
+                      )}
                     </View>
                   </View>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Título da lista */}
-            {outrosComunicados.length > 0 && (
-              <ThemedText style={styles.sectionTitle}>Últimas notícias</ThemedText>
-            )}
-          </>
-        }
-        ListEmptyComponent={
-          !loading ? (
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          !loading && (
             <View style={styles.emptyState}>
               <Ionicons name="newspaper-outline" size={64} color={theme.colors.muted} />
               <ThemedText style={styles.emptyStateText}>
                 Nenhum comunicado disponível no momento
               </ThemedText>
             </View>
-          ) : null
-        }
-        showsVerticalScrollIndicator={false}
-      />
+          )
+        )}
+      </ScrollView>
 
       {/* Loading Skeleton */}
       {loading && (
@@ -380,9 +505,24 @@ export default function ComunicadosScreen() {
               subtitle="Fique por dentro das últimas novidades da igreja"
               icon="newspaper-outline"
             />
-            <View style={{ height: 200, marginBottom: 16, backgroundColor: theme.colors.border, borderRadius: theme.radius }} />
+            <View style={{ height: 260, marginBottom: 16 }}>
+              <ScrollView horizontal>
+                {[1, 2, 3].map(i => (
+                  <View key={i} style={{ width: SCREEN_WIDTH * 0.85, marginHorizontal: 8 }}>
+                    <ComunicadoSkeleton />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
             {[1, 2, 3].map(i => (
-              <ComunicadoSkeleton key={i} />
+              <View key={i} style={styles.skeletonCard}>
+                <View style={styles.skeletonImage} />
+                <View style={styles.skeletonContent}>
+                  <View style={[styles.skeletonLine, { width: '80%', height: 18 }]} />
+                  <View style={[styles.skeletonLine, { width: '100%', height: 14 }]} />
+                  <View style={[styles.skeletonLine, { width: '60%', height: 12 }]} />
+                </View>
+              </View>
             ))}
           </ScrollView>
         </View>
@@ -421,7 +561,7 @@ export default function ComunicadosScreen() {
                   <View style={styles.metaItem}>
                     <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
                     <ThemedText style={styles.modalDate}>
-                      Publicado: {new Date(selectedComunicado?.publicar_em || '').toLocaleDateString('pt-BR', {
+                      {new Date(selectedComunicado?.publicar_em || '').toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',
                         year: 'numeric',
@@ -433,16 +573,7 @@ export default function ComunicadosScreen() {
                     <View style={styles.metaItem}>
                       <Ionicons name="calendar" size={16} color={theme.colors.primary} />
                       <ThemedText style={styles.modalDate}>
-                        Evento: {formatEventDate(selectedComunicado.data_evento)}
-                      </ThemedText>
-                    </View>
-                  )}
-
-                  {selectedComunicado?.autor_nome && (
-                    <View style={styles.metaItem}>
-                      <Ionicons name="person-outline" size={16} color={theme.colors.primary} />
-                      <ThemedText style={styles.modalDate}>
-                        {selectedComunicado.autor_nome}
+                        {formatEventDate(selectedComunicado.data_evento)}
                       </ThemedText>
                     </View>
                   )}

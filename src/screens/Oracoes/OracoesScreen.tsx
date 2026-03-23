@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 import { ThemedText } from '../../components/Themed';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../services/supabase';

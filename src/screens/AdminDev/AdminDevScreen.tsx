@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 import { ThemedCard, ThemedText } from '../../components/Themed';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../services/supabase';

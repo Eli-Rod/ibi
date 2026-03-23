@@ -16,7 +16,7 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 import { captureRef } from 'react-native-view-shot';
 
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 import { ThemedText } from '../../components/Themed';
 import { supabase } from '../../services/supabase';
 import { useTheme } from '../../theme/ThemeProvider';

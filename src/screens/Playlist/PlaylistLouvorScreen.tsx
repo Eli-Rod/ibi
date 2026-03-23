@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 import { ExpandedPlayer, MiniPlayer } from '../../components/Player/Player';
 import { ThemedText } from '../../components/Themed';
 import { useAuth } from '../../contexts/AuthContext';

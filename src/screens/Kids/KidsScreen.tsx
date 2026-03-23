@@ -11,7 +11,7 @@ import {
   RefreshControl,
   View,
 } from 'react-native';
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 import { ThemedCard, ThemedText, ThemedView } from '../../components/Themed';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../services/supabase';

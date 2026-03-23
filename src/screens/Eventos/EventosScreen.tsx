@@ -3,7 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useEventos } from '../../hooks/useEventos';
 import { useTheme } from '../../theme/ThemeProvider';
 
-import { PageHeader } from '../../components/PageHeader';
+import { PageHeader } from '../../components/PageHeader/PageHeader';
 
 import { createStyles } from './EventosScreen.styles';
 
